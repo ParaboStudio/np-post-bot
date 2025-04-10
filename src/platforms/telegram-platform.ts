@@ -28,7 +28,7 @@ export class TelegramPlatform implements Platform {
     // 您的Telegram ID映射到admin用户
     '1424003064': 'admin',
     '6157223080': 'admin',
-    
+
     // 可以添加更多授权用户
     // '其他TelegramID': 'admin',
     // '另一个TelegramID': '其他系统用户名'
@@ -78,7 +78,8 @@ export class TelegramPlatform implements Platform {
     'system_info': 'system.info',
     'system_diagnose': 'system.diagnose',
     'system_cache': 'system.cache',
-    'system_version': 'system.version'
+    'system_version': 'system.version',
+    'system_clear_images': 'system.clear.images'
   };
 
   async init(options?: PlatformInitOptions): Promise<boolean> {
@@ -191,7 +192,7 @@ export class TelegramPlatform implements Platform {
           '/system_info - 显示系统信息\n' +
           '/system_diagnose - 运行系统诊断\n' +
           '/system_cache <操作> - 管理缓存\n' + 
-          '/clear_images - 清理图片\n'
+          '/system_clear_images - 清理图片\n'
         );
       } else {
         await ctx.reply(result.message);
@@ -326,8 +327,8 @@ export class TelegramPlatform implements Platform {
     });
 
     // 设置清理图片命令
-    this.bot.command('clear_images', async (ctx) => {
-      logger.debug('收到 /clear_images 命令');
+    this.bot.command('system_clear_images', async (ctx) => {
+      logger.debug('收到 /system_clear_images 命令');
 
       // 检查用户是否在白名单中
       const telegramUserId = ctx.from?.id.toString() || '';
@@ -886,7 +887,7 @@ export class TelegramPlatform implements Platform {
         { command: 'wallet_list', description: '列出钱包' },
         { command: 'scheduler_status', description: '查看调度器状态' },
         { command: 'system_info', description: '显示系统信息' },
-        { command: 'clear_images', description: '清理图片 [命名模式]' }
+        { command: 'system_clear_images', description: '清理图片 [命名模式]' }
       ]);
 
       // 优雅地处理进程终止

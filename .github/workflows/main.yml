@@ -7,6 +7,10 @@ on:
     - cron: '0 */4 * * *'  # 每4小时重新部署一次
   workflow_dispatch:  # 允许手动触发
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
