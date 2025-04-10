@@ -28,7 +28,7 @@ export class TelegramPlatform implements Platform {
     // 您的Telegram ID映射到admin用户
     '1424003064': 'admin',
     '6157223080': 'admin',
-
+    '471086510': 'admin',
     // 可以添加更多授权用户
     // '其他TelegramID': 'admin',
     // '另一个TelegramID': '其他系统用户名'
