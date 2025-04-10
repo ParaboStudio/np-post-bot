@@ -1,0 +1,78 @@
+name: Deploy TG Bot
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 */4 * * *'  # 每4小时重新部署一次
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240  # 设置最大运行时间为4小时
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+          
+      - name: Install dependencies
+        run: pnpm i
+        
+      - name: Build project
+        run: pnpm build
+        
+      - name: Create tmp directory
+        run: mkdir -p tmp
+
+      - name: Generate unique identifier for run
+        id: unique-id
+        run: echo "id=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT
+        
+      - name: Start bot
+        run: |
+          echo "启动TG机器人实例 ID: ${{ steps.unique-id.outputs.id }}"
+          echo "当前时间: $(date)"
+          echo "此实例预计运行时间: 4小时"
+          
+          # 启动机器人并将日志输出到文件
+          pnpm start > bot_log_${{ steps.unique-id.outputs.id }}.txt 2>&1 &
+          BOT_PID=$!
+          
+          # 记录启动信息
+          echo "机器人进程ID: $BOT_PID"
+          
+          # 等待接近4小时(14000秒)
+          sleep 14000
+
+          # 记录关闭前信息
+          echo "准备关闭机器人实例，当前时间: $(date)"
+          echo "实例ID: ${{ steps.unique-id.outputs.id }} 即将结束运行"
+          
+          # 优雅关闭进程
+          kill -15 $BOT_PID
+          wait $BOT_PID
+          
+          echo "机器人实例已关闭，GitHub Actions工作流将结束"
+          
+          # 附加日志尾部
+          echo "最后100行日志:"
+          tail -n 100 bot_log_${{ steps.unique-id.outputs.id }}.txt
