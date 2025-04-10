@@ -79,7 +79,7 @@ export class TelegramPlatform implements Platform {
     'system_diagnose': 'system.diagnose',
     'system_cache': 'system.cache',
     'system_version': 'system.version',
-    'system_clear_images': 'system.clear.images'
+    'system_clear_images': 'system.clear_images'
   };
 
   async init(options?: PlatformInitOptions): Promise<boolean> {
