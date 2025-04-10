@@ -321,6 +321,71 @@ export class TelegramPlatform implements Platform {
     this.bot.command('content_list_detail', async (ctx) => {
       await this.handleContentDetailCommand(ctx);
     });
+
+    // 设置清理图片命令
+    this.bot.command('clear_images', async (ctx) => {
+      logger.debug('收到 /clear_images 命令');
+
+      // 检查用户是否在白名单中
+      const telegramUserId = ctx.from?.id.toString() || '';
+      const isAuthorized = this.checkAuthorization(telegramUserId);
+
+      if (!isAuthorized) {
+        await ctx.reply('您没有使用此机器人的权限。请联系管理员添加您的ID到白名单。');
+        logger.warn(`未授权的用户尝试访问: Telegram ID ${telegramUserId}`);
+        return;
+      }
+
+      const args = ctx.message.text.split(' ');
+      
+      // 获取命名模式参数（如果有）
+      const pattern = args.length > 1 ? args[1] : '';
+      
+      // 显示正在处理的消息
+      let processingMsg;
+      if (pattern) {
+        processingMsg = await ctx.reply(`正在清理名称包含 "${pattern}" 的图片文件，请稍候...`);
+      } else {
+        processingMsg = await ctx.reply(`正在清理所有图片文件，请稍候...`);
+      }
+      
+      try {
+        // 获取数据目录
+        const dataDir = this.config?.DATA_DIR || getDataDirectory();
+        const imagesDir = path.join(dataDir, 'images');
+        
+        // 检查目录是否存在
+        if (!fs.existsSync(imagesDir)) {
+          await ctx.reply(`图片目录不存在: ${imagesDir}`);
+          return;
+        }
+        
+        // 执行清理并获取结果
+        const result = await this.cleanupImages(imagesDir, pattern);
+        
+        // 构建清理说明
+        const description = pattern ? `名称包含 "${pattern}" 的图片文件` : '所有图片文件';
+        
+        // 发送清理结果
+        const message = `
+图片清理完成!
+
+清理内容: ${description}
+已删除: ${result.count}个文件
+释放空间: ${this.formatBytes(result.size)}
+        `.trim();
+        
+        await ctx.telegram.editMessageText(
+          ctx.chat.id, 
+          processingMsg.message_id, 
+          undefined, 
+          message
+        );
+      } catch (error) {
+        logger.error('清理图片失败', error);
+        await ctx.reply(`清理图片时出错: ${error instanceof Error ? error.message : '未知错误'}`);
+      }
+    });
   }
 
   /**
@@ -817,7 +882,8 @@ export class TelegramPlatform implements Platform {
         { command: 'wallet_add', description: '添加钱包 <私钥>' },
         { command: 'wallet_list', description: '列出钱包' },
         { command: 'scheduler_status', description: '查看调度器状态' },
-        { command: 'system_info', description: '显示系统信息' }
+        { command: 'system_info', description: '显示系统信息' },
+        { command: 'clear_images', description: '清理图片 [命名模式]' }
       ]);
 
       // 优雅地处理进程终止
@@ -1079,5 +1145,72 @@ ${content.text || '无文本内容'}
         message: `获取内容详情失败: ${error instanceof Error ? error.message : '未知错误'}`
       };
     }
+  }
+
+  /**
+   * 清理图片文件
+   * @param directory 图片目录
+   * @param pattern 可选的文件名过滤模式
+   * @returns 清理结果，包含删除的文件数量和释放的空间
+   */
+  private async cleanupImages(directory: string, pattern: string = ''): Promise<{count: number, size: number}> {
+    try {
+      logger.info(`开始清理图片目录: ${directory}${pattern ? `, 过滤模式: ${pattern}` : ''}`);
+      
+      let count = 0;
+      let size = 0;
+      
+      // 读取目录中的所有文件
+      const files = fs.readdirSync(directory);
+      
+      // 图片文件扩展名
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      
+      // 遍历并清理文件
+      for (const file of files) {
+        try {
+          const filePath = path.join(directory, file);
+          const stats = fs.statSync(filePath);
+          
+          // 只处理文件，不处理目录
+          if (!stats.isDirectory()) {
+            // 检查是否是图片文件
+            const ext = path.extname(file).toLowerCase();
+            if (imageExtensions.includes(ext)) {
+              // 应用命名模式过滤
+              if (!pattern || file.includes(pattern)) {
+                // 删除文件并记录大小
+                size += stats.size;
+                fs.unlinkSync(filePath);
+                count++;
+                logger.debug(`已删除图片: ${file}`);
+              }
+            }
+          }
+        } catch (error) {
+          logger.error(`处理文件时出错: ${file}`, error);
+          // 继续处理其他文件
+        }
+      }
+      
+      logger.info(`图片清理完成，删除了${count}个文件，释放了${this.formatBytes(size)}空间`);
+      
+      return { count, size };
+    } catch (error) {
+      logger.error('清理图片文件失败', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 格式化文件大小
+   */
+  private formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + sizes[i];
   }
 } 

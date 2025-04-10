@@ -40,9 +40,6 @@ jobs:
       - name: Build project
         run: pnpm build
         
-      - name: Create tmp directory
-        run: mkdir -p tmp
-
       - name: Generate unique identifier for run
         id: unique-id
         run: echo "id=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_OUTPUT

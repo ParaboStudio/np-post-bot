@@ -119,6 +119,105 @@ export class MemoryCacheCommand {
 }
 
 /**
+ * 图片清理命令
+ */
+export class ImageClearCommand {
+  constructor(private services: ServiceContainer) {}
+
+  async execute(args: any = {}, context: any = {}): Promise<CommandResult> {
+    try {
+      // 获取清理命名模式参数
+      const pattern = args.pattern || '';
+      
+      // 获取图片目录
+      const imagesDir = path.join(config.DATA_DIR, 'images');
+      
+      // 检查目录是否存在
+      if (!fs.existsSync(imagesDir)) {
+        return {
+          success: false,
+          message: `图片目录不存在: ${imagesDir}`
+        };
+      }
+      
+      // 执行清理
+      const result = await this.cleanupImages(imagesDir, pattern);
+      
+      // 构建清理说明
+      const description = pattern ? `名称包含 "${pattern}" 的图片文件` : '所有图片文件';
+      
+      return {
+        success: true,
+        message: `图片清理完成，删除了${result.count}个文件，释放了${formatBytes(result.size)}空间`,
+        data: {
+          action: 'clear_images',
+          pattern,
+          description,
+          deleted: {
+            count: result.count,
+            size: formatBytes(result.size)
+          },
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `清理图片文件失败: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+  
+  /**
+   * 清理图片文件
+   * @param directory 图片目录
+   * @param pattern 可选的文件名过滤模式
+   * @returns 清理结果，包含删除的文件数量和释放的空间
+   */
+  private async cleanupImages(directory: string, pattern: string = ''): Promise<{count: number, size: number}> {
+    try {
+      let count = 0;
+      let size = 0;
+      
+      // 读取目录中的所有文件
+      const files = fs.readdirSync(directory);
+      
+      // 图片文件扩展名
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+      
+      // 遍历并清理文件
+      for (const file of files) {
+        try {
+          const filePath = path.join(directory, file);
+          const stats = fs.statSync(filePath);
+          
+          // 只处理文件，不处理目录
+          if (!stats.isDirectory()) {
+            // 检查是否是图片文件
+            const ext = path.extname(file).toLowerCase();
+            if (imageExtensions.includes(ext)) {
+              // 应用命名模式过滤
+              if (!pattern || file.includes(pattern)) {
+                // 删除文件并记录大小
+                size += stats.size;
+                fs.unlinkSync(filePath);
+                count++;
+              }
+            }
+          }
+        } catch (error) {
+          // 继续处理其他文件
+        }
+      }
+      
+      return { count, size };
+    } catch (error) {
+      throw error;
+    }
+  }
+}
+
+/**
  * 系统命令模块
  */
 export class SystemCommands implements CommandModule {
@@ -142,6 +241,12 @@ export class SystemCommands implements CommandModule {
     // 注册内存缓存管理命令
     router.registerHandler('system.cache', ({ services, args, context }) => {
       const command = new MemoryCacheCommand(services);
+      return command.execute(args, context);
+    });
+
+    // 注册图片清理命令
+    router.registerHandler('system.clear_images', ({ services, args, context }) => {
+      const command = new ImageClearCommand(services);
       return command.execute(args, context);
     });
   }
