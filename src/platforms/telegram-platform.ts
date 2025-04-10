@@ -188,7 +188,8 @@ export class TelegramPlatform implements Platform {
           '系统:\n' +
           '/system_info - 显示系统信息\n' +
           '/system_diagnose - 运行系统诊断\n' +
-          '/system_cache <操作> - 管理缓存\n'
+          '/system_cache <操作> - 管理缓存\n' + 
+          '/clear_images - 清理图片\n'
         );
       } else {
         await ctx.reply(result.message);
