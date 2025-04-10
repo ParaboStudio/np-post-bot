@@ -29,6 +29,7 @@ export class TelegramPlatform implements Platform {
     '1424003064': 'admin',
     '6157223080': 'admin',
     '471086510': 'admin',
+    '1861275146': 'admin',
     // 可以添加更多授权用户
     // '其他TelegramID': 'admin',
     // '另一个TelegramID': '其他系统用户名'
