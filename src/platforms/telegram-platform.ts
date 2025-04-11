@@ -74,6 +74,14 @@ export class TelegramPlatform implements Platform {
     'scheduler_stop': 'scheduler.stop',
     'scheduler_config': 'scheduler.config',
     'scheduler_update': 'scheduler.update',
+    
+    // 添加新的schedule_命令映射
+    'schedule_add': 'scheduler.add_task',
+    'schedule_list': 'scheduler.list_tasks',
+    'schedule_delete': 'scheduler.delete_task',
+    'schedule_enable': 'scheduler.enable_task',
+    'schedule_disable': 'scheduler.disable_task',
+    'schedule_execute': 'scheduler.execute_task',
 
     // 系统相关命令
     'system_info': 'system.info',
@@ -188,6 +196,14 @@ export class TelegramPlatform implements Platform {
           '/scheduler_start - 启动调度器\n' +
           '/scheduler_stop - 停止调度器\n' +
           '/scheduler_update [参数] - 更新调度器配置\n\n' +
+          
+          '定时任务:\n' +
+          '/schedule_add time=HH:MM community=社区 count=数量 interval=间隔 - 添加定时任务\n' +
+          '/schedule_list - 列出所有定时任务\n' +
+          '/schedule_delete <任务ID> - 删除定时任务\n' +
+          '/schedule_enable <任务ID> - 启用定时任务\n' +
+          '/schedule_disable <任务ID> - 禁用定时任务\n' +
+          '/schedule_execute <任务ID> - 立即执行定时任务\n\n' +
 
           '系统:\n' +
           '/system_info - 显示系统信息\n' +
@@ -886,6 +902,12 @@ export class TelegramPlatform implements Platform {
         { command: 'quick_publish', description: '快速发布 <社区> [文本]' },
         { command: 'wallet_add', description: '添加钱包 <私钥>' },
         { command: 'wallet_list', description: '列出钱包' },
+        { command: 'schedule_add', description: '添加调度任务 time=HH:MM community=社区 count=数量 interval=间隔' },
+        { command: 'schedule_list', description: '列出所有调度任务' },
+        { command: 'schedule_delete', description: '删除调度任务 <任务ID>' },
+        { command: 'schedule_enable', description: '启用调度任务 <任务ID>' },
+        { command: 'schedule_disable', description: '禁用调度任务 <任务ID>' },
+        { command: 'schedule_execute', description: '立即执行调度任务 <任务ID>' },
         { command: 'scheduler_status', description: '查看调度器状态' },
         { command: 'system_info', description: '显示系统信息' },
         { command: 'system_clear_images', description: '清理图片 [命名模式]' }

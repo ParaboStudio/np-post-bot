@@ -481,7 +481,7 @@ export class SchedulerCommands implements CommandModule {
   /**
    * 异步执行任务
    */
-  private async executeTaskAsync(task: ScheduleTask, services: any, user: any) {
+  private async executeTaskAsync(task: ScheduleTask, services: any, context: any) {
     try {
       logger.info(`开始执行任务 ${task.id}: 在 ${task.community} 发布 ${task.contentCount} 条内容`);
 
@@ -513,7 +513,7 @@ export class SchedulerCommands implements CommandModule {
           const publishResult = await publishService.publish({
             community: task.community,
             content,
-            user: user
+            user: context
           });
 
           logger.info(`发布 #${i + 1} 结果:`, publishResult);
