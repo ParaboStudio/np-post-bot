@@ -317,6 +317,20 @@ const commands: Record<string, CommandDefinition> = {
       { name: 'amount', description: '每个钱包发送的ETH数量', required: true }
     ],
     category: '钱包'
+  },
+  'wallet.transfer_all': {
+    platforms: {
+      telegram: { command: 'wallet_transfer_all' },
+      cli: { command: 'wallet transfer-all' },
+      api: { endpoint: '/api/wallet/transfer-all' }
+    },
+    handler: 'WalletCommands.transferAllFunds',
+    description: '将所有钱包资产转移到安全地址',
+    params: [
+      { name: 'targetAddress', description: '目标安全地址', required: true },
+      { name: 'minAmount', description: '最小转账金额(ETH)，默认0.001', required: false }
+    ],
+    category: '钱包'
   }
 };
 

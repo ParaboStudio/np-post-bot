@@ -22,6 +22,7 @@ export class WalletCommands implements CommandModule {
     router.registerHandler('wallet.switch', this.switchWallet);
     router.registerHandler('wallet.generate', this.generateWallets);
     router.registerHandler('wallet.multicall_send', this.multicallSendEth);
+    router.registerHandler('wallet.transfer_all', this.transferAllFunds);
   }
 
   /**
@@ -312,6 +313,85 @@ export class WalletCommands implements CommandModule {
       return {
         success: false,
         message: `批量发送ETH失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 将所有钱包的资产转移到安全地址
+   * 用于在重新部署前保护资产
+   */
+  private transferAllFunds: CommandHandler = async ({ services, args }) => {
+    try {
+      // 必要参数验证
+      if (!args.targetAddress) {
+        return {
+          success: false,
+          message: '缺少目标安全地址参数'
+        };
+      }
+
+      // 验证地址格式
+      if (!ethers.utils.isAddress(args.targetAddress)) {
+        return {
+          success: false,
+          message: '无效的目标地址格式'
+        };
+      }
+
+      // 获取RPC URL
+      const chainService = services.chain;
+      const chainConfig = chainService.getCurrentChainConfig();
+
+      if (!chainConfig || !chainConfig.rpcUrl) {
+        return {
+          success: false,
+          message: '无法获取当前链的RPC URL，请先配置链'
+        };
+      }
+
+      const rpcUrl = chainConfig.rpcUrl;
+
+      // 获取最小转账阈值，默认为0.001 ETH
+      const minAmount = args.minAmount || '0.001';
+
+      // 获取当前用户
+      const userService = services.user;
+      const user = userService.getCurrentUser();
+      
+      // 执行批量资金转移
+      const walletService = services.wallet;
+      const result = await walletService.transferAllFunds(
+        args.targetAddress,
+        rpcUrl,
+        minAmount,
+        user
+      );
+      
+      // 统计成功和失败数量
+      const successCount = result.transfers.filter((t) => t.success).length;
+      const failCount = result.transfers.length - successCount;
+      const totalAmountTransferred = result.transfers
+        .filter((t) => t.success)
+        .reduce((sum: number, t) => sum + parseFloat(t.amount), 0)
+        .toFixed(6);
+      
+      return {
+        success: true,
+        message: `批量转移资金完成: ${successCount}个钱包成功，${failCount}个钱包失败，总计转移 ${totalAmountTransferred} ETH`,
+        data: {
+          targetAddress: args.targetAddress,
+          totalTransferred: totalAmountTransferred,
+          successCount,
+          failCount,
+          transfers: result.transfers
+        }
+      };
+    } catch (error) {
+      logger.error('批量转移资金失败', error);
+      return {
+        success: false,
+        message: `批量转移资金失败: ${(error as Error).message || String(error)}`
       };
     }
   };
