@@ -24,14 +24,26 @@ jobs:
         with:
           fetch-depth: 0  # 获取完整历史以便于提交变更
       
-      - name: 设置Node.js环境
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          cache: 'npm'
+          node-version: '18'
+          
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
       
-      - name: 安装依赖
-        run: npm ci
+      - name: Cache pnpm dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+          
+      - name: Install dependencies
+        run: pnpm i
       
       - name: 执行调度任务
         env:
