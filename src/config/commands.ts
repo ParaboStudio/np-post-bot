@@ -238,6 +238,21 @@ const commands: Record<string, CommandDefinition> = {
     ],
     category: '发布'
   },
+  'publish.batch': {
+    platforms: {
+      telegram: { command: 'batch_publish' },
+      cli: { command: 'publish batch' },
+      api: { endpoint: '/api/publish/batch' }
+    },
+    handler: 'PublishCommands.handleBatchPublish',
+    description: '批量发布内容',
+    params: [
+      { name: 'community', description: '社区标识', required: true },
+      { name: 'count', description: '发布数量', required: true },
+      { name: 'walletIndex', description: '钱包索引', required: false }
+    ],
+    category: '发布'
+  },
   
   // 钱包相关命令
   'wallet.add': {
@@ -331,6 +346,114 @@ const commands: Record<string, CommandDefinition> = {
       { name: 'minAmount', description: '最小转账金额(ETH)，默认0.001', required: false }
     ],
     category: '钱包'
+  },
+  'wallet.export': {
+    platforms: {
+      telegram: { command: 'wallet_export' },
+      cli: { command: 'wallet export' },
+      api: { endpoint: '/api/wallet/export' }
+    },
+    handler: 'WalletCommands.exportWallets',
+    description: '导出钱包信息',
+    params: [
+      { name: 'format', description: '导出格式(json/csv)', required: false }
+    ],
+    category: '钱包'
+  },
+  
+  // 资金管理命令
+  'fund.send': {
+    platforms: {
+      telegram: { command: 'fund_send' },
+      cli: { command: 'fund send' },
+      api: { endpoint: '/api/fund/send' }
+    },
+    handler: 'FundCommands.handleSend',
+    description: '发送资金',
+    params: [
+      { name: 'toAddress', description: '接收地址', required: true },
+      { name: 'amount', description: '金额', required: true },
+      { name: 'walletIndex', description: '钱包索引', required: false }
+    ],
+    category: '资金'
+  },
+  'fund.distribute': {
+    platforms: {
+      telegram: { command: 'fund_distribute' },
+      cli: { command: 'fund distribute' },
+      api: { endpoint: '/api/fund/distribute' }
+    },
+    handler: 'FundCommands.handleDistribute',
+    description: '向多个钱包分发资金',
+    params: [
+      { name: 'amount', description: '每个钱包的金额', required: true },
+      { name: 'walletIndices', description: '钱包索引列表', required: false }
+    ],
+    category: '资金'
+  },
+  'fund.batch_eth': {
+    platforms: {
+      telegram: { command: 'fund_batch_eth' },
+      cli: { command: 'fund batch-eth' },
+      api: { endpoint: '/api/fund/batch-eth' }
+    },
+    handler: 'FundCommands.handleBatchEth',
+    description: '批量打ETH到钱包',
+    params: [
+      { name: 'amount', description: '每个钱包的ETH数量', required: true },
+      { name: 'walletList', description: '钱包列表', required: false }
+    ],
+    category: '资金'
+  },
+  'fund.balance': {
+    platforms: {
+      telegram: { command: 'fund_balance' },
+      cli: { command: 'fund balance' },
+      api: { endpoint: '/api/fund/balance' }
+    },
+    handler: 'FundCommands.handleBalance',
+    description: '查询钱包余额',
+    params: [
+      { name: 'walletIndex', description: '钱包索引', required: false }
+    ],
+    category: '资金'
+  },
+  
+  // 链操作命令
+  'chain.switch': {
+    platforms: {
+      telegram: { command: 'chain_switch' },
+      cli: { command: 'chain switch' },
+      api: { endpoint: '/api/chain/switch' }
+    },
+    handler: 'ChainCommands.handleSwitch',
+    description: '切换当前链',
+    params: [
+      { name: 'chain', description: '链名称', required: true }
+    ],
+    category: '链操作'
+  },
+  'chain.list': {
+    platforms: {
+      telegram: { command: 'chain_list' },
+      cli: { command: 'chain list' },
+      api: { endpoint: '/api/chain/list' }
+    },
+    handler: 'ChainCommands.handleList',
+    description: '列出支持的链',
+    params: [],
+    category: '链操作'
+  },
+  'chain.info': {
+    platforms: {
+      telegram: { command: 'chain_info' },
+      cli: { command: 'chain info' },
+      api: { endpoint: '/api/chain/info' }
+    },
+    handler: 'ChainCommands.handleInfo',
+    description: '显示当前链信息',
+    params: [],
+    category: '链操作'
   }
 };
 

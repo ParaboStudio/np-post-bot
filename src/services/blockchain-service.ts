@@ -43,12 +43,14 @@ export interface MulticallSendResult {
 export class BlockchainService {
   private providers: Record<string, ethers.providers.JsonRpcProvider> = {};
   private contracts: Record<string, ethers.Contract> = {};
+  private defaultRpcUrl?: string;
 
   /**
    * 构造函数
    */
   constructor(options?: BlockchainServiceOptions) {
     if (options?.defaultRpcUrl) {
+      this.defaultRpcUrl = options.defaultRpcUrl;
       this.getProvider(options.defaultRpcUrl);
     }
   }
@@ -317,5 +319,13 @@ export class BlockchainService {
       logger.error('批量发送ETH失败', error);
       throw error;
     }
+  }
+
+  /**
+   * 获取默认RPC URL
+   */
+  public getDefaultRpcUrl(): string {
+    // 获取默认RPC URL
+    return this.defaultRpcUrl || "https://sepolia.base.org";
   }
 } 

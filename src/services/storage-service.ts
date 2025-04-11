@@ -18,6 +18,7 @@ export class StorageService {
   private data: {
     users: Record<string, UserData>;
     chains: Record<string, { rpcUrl: string; contractAddress: string }>;
+    config: Record<string, any>;
   };
 
   /**
@@ -31,7 +32,8 @@ export class StorageService {
     
     this.data = {
       users: {},
-      chains: {}
+      chains: {},
+      config: {}
     };
 
     // 初始化数据存储
@@ -293,9 +295,9 @@ export class StorageService {
   }
   
   /**
-   * 保存单个用户数据
+   * 保存用户数据（内部方法）
    */
-  private async saveUserData(username: string): Promise<void> {
+  private async _saveUserData(username: string): Promise<void> {
     try {
       const userData = this.data.users[username];
       if (!userData) return;
@@ -347,6 +349,13 @@ export class StorageService {
     } catch (error) {
       logger.error(`保存用户数据失败: ${username}`, error);
     }
+  }
+
+  /**
+   * 保存用户数据（公共方法）
+   */
+  public async saveUserData(username: string): Promise<void> {
+    await this._saveUserData(username);
   }
   
   /**
@@ -834,5 +843,12 @@ export class StorageService {
    */
   public getDefaultChain(): string {
     return this.config.DEFAULT_CHAIN || 'sepolia';
+  }
+
+  /**
+   * 获取全局配置
+   */
+  public getGlobalConfig(key: string): any {
+    return this.data.config[key];
   }
 } 

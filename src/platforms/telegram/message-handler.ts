@@ -117,13 +117,22 @@ export class TelegramMessageHandler {
 
         '发布管理:\n' +
         '/publish <社区> <内容ID> [钱包索引] - 发布内容\n' +
-        '/quick_publish <社区> [文本] - 快速发布\n\n' +
+        '/quick_publish <社区> [文本] - 快速发布\n' +
+        '/batch_publish <社区> <数量> - 批量发布内容\n\n' +
 
         '钱包管理:\n' +
         '/wallet_add <私钥> - 添加钱包\n' +
+        '/wallet_generate [数量=1] - 自动生成钱包\n' +
         '/wallet_list - 列出钱包\n' +
         '/wallet_delete <索引> - 删除钱包\n' +
-        '/wallet_switch <索引> - 切换钱包\n\n' +
+        '/wallet_switch <索引> - 切换钱包\n' +
+        '/wallet_export [格式=json] - 导出钱包\n\n' +
+
+        '资金管理:\n' +
+        '/fund_send <接收地址> <金额> [钱包索引] - 发送资金\n' +
+        '/fund_distribute <金额> [钱包列表] - 向多个钱包分发资金\n' +
+        '/fund_batch_eth <金额> [钱包列表] - 批量打ETH到钱包\n' +
+        '/fund_balance [钱包索引] - 查询钱包余额\n\n' +
 
         '调度器:\n' +
         '/scheduler_status - 查看调度器状态\n' +
@@ -138,6 +147,11 @@ export class TelegramMessageHandler {
         '/schedule_enable <任务ID> - 启用定时任务\n' +
         '/schedule_disable <任务ID> - 禁用定时任务\n' +
         '/schedule_execute <任务ID> - 立即执行定时任务\n\n' +
+
+        '多链操作:\n' +
+        '/chain_switch <链名称> - 切换当前链\n' +
+        '/chain_list - 列出支持的链\n' +
+        '/chain_info - 显示当前链信息\n\n' +
 
         '系统:\n' +
         '/system_info - 显示系统信息\n' +

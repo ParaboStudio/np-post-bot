@@ -10,6 +10,8 @@ import { UserCommands } from './user-commands.js';
 import { SchedulerCommands } from './scheduler-commands.js';
 import { SystemCommands } from './system-commands.js';
 import logger from '../utils/logger.js';
+import { ChainCommands } from './chain-commands.js';
+import { FundCommands } from './fund-commands.js';
 
 /**
  * 初始化命令路由器
@@ -26,7 +28,9 @@ export function initCommandRouter(services: ServiceContainer): CommandRouter {
       new PublishCommands(),
       new UserCommands(),
       new SchedulerCommands(),
-      new SystemCommands()
+      new SystemCommands(),
+      new ChainCommands(),
+      new FundCommands()
     ];
     
     // 初始化所有模块
@@ -50,4 +54,6 @@ export * from './content-commands.js';
 export * from './publish-commands.js';
 export * from './user-commands.js';
 export * from './scheduler-commands.js';
-export * from './system-commands.js'; 
+export * from './system-commands.js';
+export * from './chain-commands.js';
+export * from './fund-commands.js'; 

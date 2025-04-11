@@ -40,6 +40,53 @@ export interface FundTransferResult {
 }
 
 /**
+ * 钱包余额查询结果
+ */
+export interface WalletBalanceResult {
+  address: string;
+  balance: ethers.BigNumber;
+  walletIndex: number;
+}
+
+/**
+ * 资金发送结果
+ */
+export interface SendFundsResult {
+  txHash: string;
+  from: string;
+  to: string;
+  amount: string;
+  gasUsed: string;
+}
+
+/**
+ * 批量资金分发结果
+ */
+export interface DistributeFundsResult {
+  transfers: {
+    walletId: number;
+    address: string;
+    amount: string;
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }[];
+}
+
+/**
+ * 批量打ETH结果
+ */
+export interface BatchSendEthResult {
+  transfers: {
+    address: string;
+    amount: string;
+    success: boolean;
+    txHash?: string;
+    error?: string;
+  }[];
+}
+
+/**
  * 钱包服务
  */
 export class WalletService {
@@ -408,5 +455,262 @@ export class WalletService {
       logger.error(`执行批量资金转移失败`, error);
       throw error;
     }
+  }
+
+  /**
+   * 查询钱包余额
+   */
+  public async getWalletBalance(walletIndex?: number, rpcUrl?: string, username?: string): Promise<WalletBalanceResult> {
+    const user = username || this.user.getCurrentUser();
+    const index = walletIndex || this.getCurrentWalletIndex(user);
+    
+    // 获取钱包
+    const wallets = this.getWallets(user);
+    if (index < 1 || index > wallets.length) {
+      throw new Error(`无效的钱包索引: ${index}`);
+    }
+    
+    const wallet = wallets.find(w => w.id === index);
+    if (!wallet) {
+      throw new Error(`找不到索引为 ${index} 的钱包`);
+    }
+    
+    // 获取RPC URL
+    const rpcEndpoint = rpcUrl || this.blockchain.getDefaultRpcUrl();
+    if (!rpcEndpoint) {
+      throw new Error('未配置有效的RPC URL');
+    }
+    
+    // 获取提供者
+    const provider = this.blockchain.getProvider(rpcEndpoint);
+    
+    // 查询余额
+    const balance = await provider.getBalance(wallet.address);
+    
+    return {
+      address: wallet.address,
+      balance,
+      walletIndex: index
+    };
+  }
+  
+  /**
+   * 发送资金
+   */
+  public async sendFunds(toAddress: string, amount: string, walletIndex?: number, username?: string): Promise<SendFundsResult> {
+    const user = username || this.user.getCurrentUser();
+    const index = walletIndex || this.getCurrentWalletIndex(user);
+    
+    // 验证地址格式
+    if (!ethers.utils.isAddress(toAddress)) {
+      throw new Error('无效的接收地址格式');
+    }
+    
+    // 获取RPC URL
+    const rpcUrl = this.blockchain.getDefaultRpcUrl();
+    if (!rpcUrl) {
+      throw new Error('未配置有效的RPC URL');
+    }
+    
+    // 获取钱包实例
+    const wallet = this.getWalletInstance(index, rpcUrl, user);
+    
+    // 解析金额为wei
+    const amountWei = ethers.utils.parseEther(amount);
+    
+    // 检查余额
+    const balance = await wallet.getBalance();
+    if (balance.lt(amountWei)) {
+      throw new Error(`余额不足，当前余额: ${ethers.utils.formatEther(balance)} ETH`);
+    }
+    
+    // 发送交易
+    const tx = await wallet.sendTransaction({
+      to: toAddress,
+      value: amountWei
+    });
+    
+    // 等待交易确认
+    const receipt = await tx.wait();
+    
+    return {
+      txHash: tx.hash,
+      from: wallet.address,
+      to: toAddress,
+      amount,
+      gasUsed: receipt.gasUsed.toString()
+    };
+  }
+  
+  /**
+   * 向多个钱包分发资金
+   */
+  public async distributeFunds(amount: string, walletIndices: number[], username?: string): Promise<DistributeFundsResult> {
+    const user = username || this.user.getCurrentUser();
+    const wallets = this.getWallets(user);
+    const results: DistributeFundsResult = { transfers: [] };
+    
+    // 获取RPC URL
+    const rpcUrl = this.blockchain.getDefaultRpcUrl();
+    if (!rpcUrl) {
+      throw new Error('未配置有效的RPC URL');
+    }
+    
+    // 获取当前钱包作为资金来源
+    const sourceWalletIndex = this.getCurrentWalletIndex(user);
+    const sourceWallet = this.getWalletInstance(sourceWalletIndex, rpcUrl, user);
+    
+    // 解析金额为wei
+    const amountWei = ethers.utils.parseEther(amount);
+    
+    // 计算总需要金额
+    const totalAmountWei = amountWei.mul(walletIndices.length);
+    
+    // 检查余额
+    const balance = await sourceWallet.getBalance();
+    if (balance.lt(totalAmountWei)) {
+      throw new Error(`余额不足，当前余额: ${ethers.utils.formatEther(balance)} ETH，需要: ${ethers.utils.formatEther(totalAmountWei)} ETH`);
+    }
+    
+    // 批量发送
+    for (const targetIndex of walletIndices) {
+      try {
+        if (targetIndex < 1 || targetIndex > wallets.length) {
+          results.transfers.push({
+            walletId: targetIndex,
+            address: 'unknown',
+            amount,
+            success: false,
+            error: `无效的钱包索引: ${targetIndex}`
+          });
+          continue;
+        }
+        
+        const targetWallet = wallets.find(w => w.id === targetIndex);
+        if (!targetWallet) {
+          results.transfers.push({
+            walletId: targetIndex,
+            address: 'unknown',
+            amount,
+            success: false,
+            error: `找不到索引为 ${targetIndex} 的钱包`
+          });
+          continue;
+        }
+        
+        // 发送交易
+        const tx = await sourceWallet.sendTransaction({
+          to: targetWallet.address,
+          value: amountWei
+        });
+        
+        // 等待交易确认
+        const receipt = await tx.wait();
+        
+        results.transfers.push({
+          walletId: targetIndex,
+          address: targetWallet.address,
+          amount,
+          success: true,
+          txHash: tx.hash
+        });
+      } catch (error) {
+        results.transfers.push({
+          walletId: targetIndex,
+          address: wallets.find(w => w.id === targetIndex)?.address || 'unknown',
+          amount,
+          success: false,
+          error: (error as Error).message || String(error)
+        });
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * 批量打ETH到钱包
+   */
+  public async batchSendEth(amount: string, walletList: string[], username?: string): Promise<BatchSendEthResult> {
+    const user = username || this.user.getCurrentUser();
+    const results: BatchSendEthResult = { transfers: [] };
+    
+    // 获取RPC URL
+    const rpcUrl = this.blockchain.getDefaultRpcUrl();
+    if (!rpcUrl) {
+      throw new Error('未配置有效的RPC URL');
+    }
+    
+    // 获取当前钱包作为资金来源
+    const sourceWalletIndex = this.getCurrentWalletIndex(user);
+    const sourceWallet = this.getWalletInstance(sourceWalletIndex, rpcUrl, user);
+    
+    // 解析金额为wei
+    const amountWei = ethers.utils.parseEther(amount);
+    
+    // 计算总需要金额
+    const totalAmountWei = amountWei.mul(walletList.length);
+    
+    // 检查余额
+    const balance = await sourceWallet.getBalance();
+    if (balance.lt(totalAmountWei)) {
+      throw new Error(`余额不足，当前余额: ${ethers.utils.formatEther(balance)} ETH，需要: ${ethers.utils.formatEther(totalAmountWei)} ETH`);
+    }
+    
+    // 批量发送
+    for (const targetAddress of walletList) {
+      try {
+        // 处理可能是钱包索引的情况
+        let actualAddress = targetAddress;
+        
+        if (!isNaN(parseInt(targetAddress))) {
+          const walletIndex = parseInt(targetAddress);
+          const wallets = this.getWallets(user);
+          
+          if (walletIndex >= 1 && walletIndex <= wallets.length) {
+            const targetWallet = wallets.find(w => w.id === walletIndex);
+            if (targetWallet) {
+              actualAddress = targetWallet.address;
+            }
+          }
+        }
+        
+        // 验证地址格式
+        if (!ethers.utils.isAddress(actualAddress)) {
+          results.transfers.push({
+            address: actualAddress,
+            amount,
+            success: false,
+            error: '无效的地址格式'
+          });
+          continue;
+        }
+        
+        // 发送交易
+        const tx = await sourceWallet.sendTransaction({
+          to: actualAddress,
+          value: amountWei
+        });
+        
+        // 等待交易确认
+        const receipt = await tx.wait();
+        
+        results.transfers.push({
+          address: actualAddress,
+          amount,
+          success: true,
+          txHash: tx.hash
+        });
+      } catch (error) {
+        results.transfers.push({
+          address: targetAddress,
+          amount,
+          success: false,
+          error: (error as Error).message || String(error)
+        });
+      }
+    }
+    
+    return results;
   }
 } 

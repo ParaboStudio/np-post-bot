@@ -71,6 +71,9 @@ export async function initServices(config: Config): Promise<ServiceContainer> {
     user
   });
   
+  // 初始化链服务
+  await chain.init();
+  
   logger.debug('初始化发布服务...');
   const posting = new PostingService({ 
     blockchain, 

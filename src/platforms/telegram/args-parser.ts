@@ -36,11 +36,27 @@ export class TelegramArgsParser {
     // 发布相关命令
     this.commandHandlers['publish.content'] = this.handlePublishContentParams;
     this.commandHandlers['publish.quick'] = this.handleQuickPublishParams;
+    this.commandHandlers['publish.batch'] = this.handleBatchPublishParams;
 
     // 钱包相关命令
     this.commandHandlers['wallet.add'] = this.handleWalletAddParams;
+    this.commandHandlers['wallet.generate'] = this.handleWalletGenerateParams;
     this.commandHandlers['wallet.delete'] = this.handleWalletIndexParams;
     this.commandHandlers['wallet.switch'] = this.handleWalletIndexParams;
+    this.commandHandlers['wallet.export'] = this.handleWalletExportParams;
+    this.commandHandlers['wallet.multicall_send'] = this.handleMulticallSendParams;
+    this.commandHandlers['wallet.transfer_all'] = this.handleTransferAllParams;
+
+    // 资金相关命令
+    this.commandHandlers['fund.send'] = this.handleFundSendParams;
+    this.commandHandlers['fund.distribute'] = this.handleFundDistributeParams;
+    this.commandHandlers['fund.batch_eth'] = this.handleFundBatchEthParams;
+    this.commandHandlers['fund.balance'] = this.handleWalletIndexParams; // 复用钱包索引参数
+
+    // 链操作相关命令
+    this.commandHandlers['chain.switch'] = this.handleChainSwitchParams;
+    this.commandHandlers['chain.list'] = this.handleEmptyParams;
+    this.commandHandlers['chain.info'] = this.handleEmptyParams;
 
     // 用户相关命令
     this.commandHandlers['user.add'] = this.handleUserAddParams;
@@ -49,8 +65,13 @@ export class TelegramArgsParser {
 
     // 调度器相关命令
     this.commandHandlers['scheduler.update'] = this.handleSchedulerUpdateParams;
+    this.commandHandlers['scheduler.add'] = this.handleSchedulerAddParams;
+    
+    // 系统相关命令
     this.commandHandlers['system.cache'] = this.handleSystemCacheParams;
     this.commandHandlers['system.clear_images'] = this.handleClearImagesParams;
+    this.commandHandlers['system.info'] = this.handleEmptyParams;
+    this.commandHandlers['system.diagnose'] = this.handleEmptyParams;
   }
 
   /**
@@ -171,6 +192,25 @@ export class TelegramArgsParser {
     return parsedArgs;
   };
 
+  // 处理 publish.batch 命令的参数
+  private handleBatchPublishParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.ensLabel = args[0];
+      
+      if (args.length > 1) {
+        parsedArgs.count = parseInt(args[1]);
+        
+        if (args.length > 2) {
+          parsedArgs.walletIndex = parseInt(args[2]);
+        }
+      }
+    }
+
+    return parsedArgs;
+  };
+
   // 处理 wallet.add 命令的参数
   private handleWalletAddParams = (args: string[]): Record<string, any> => {
     const parsedArgs: Record<string, any> = {};
@@ -193,7 +233,138 @@ export class TelegramArgsParser {
     return parsedArgs;
   };
 
-  // 处理 user.add 命令的参数
+  // 处理 wallet.generate 命令的参数
+  private handleWalletGenerateParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.count = parseInt(args[0]);
+      
+      if (args.length > 1) {
+        // 如果提供了助记词，合并为一个字符串
+        parsedArgs.mnemonic = args.slice(1).join(' ');
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理 wallet.export 命令的参数
+  private handleWalletExportParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.format = args[0].toLowerCase();
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理多签调用发送参数
+  private handleMulticallSendParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.privateKey = args[0];
+      
+      if (args.length > 1) {
+        parsedArgs.amount = args[1];
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理转移所有资金参数
+  private handleTransferAllParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.targetAddress = args[0];
+      
+      if (args.length > 1) {
+        parsedArgs.minAmount = args[1];
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理资金发送参数
+  private handleFundSendParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.toAddress = args[0];
+      
+      if (args.length > 1) {
+        parsedArgs.amount = args[1];
+        
+        if (args.length > 2) {
+          parsedArgs.walletIndex = parseInt(args[2]);
+        }
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理资金批量分发参数
+  private handleFundDistributeParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.amount = args[0];
+      
+      if (args.length > 1) {
+        // 解析钱包列表，可能是逗号分隔的索引
+        const walletListStr = args.slice(1).join(' ');
+        const walletIndices = walletListStr.split(',').map(idx => parseInt(idx.trim())).filter(idx => !isNaN(idx));
+        
+        if (walletIndices.length > 0) {
+          parsedArgs.walletIndices = walletIndices;
+        }
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理批量ETH发送参数
+  private handleFundBatchEthParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.amount = args[0];
+      
+      if (args.length > 1) {
+        // 解析钱包列表，可能是逗号分隔的索引或地址
+        const walletListStr = args.slice(1).join(' ');
+        
+        // 检查是否是用逗号分隔的列表
+        if (walletListStr.includes(',')) {
+          parsedArgs.walletList = walletListStr.split(',').map(item => item.trim());
+        } else {
+          parsedArgs.walletList = [walletListStr];
+        }
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理链切换参数
+  private handleChainSwitchParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    if (args.length > 0) {
+      parsedArgs.chain = args[0].toLowerCase();
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理用户相关命令的参数
   private handleUserAddParams = (args: string[]): Record<string, any> => {
     const parsedArgs: Record<string, any> = {};
 
@@ -316,5 +487,26 @@ export class TelegramArgsParser {
     }
 
     return parsedArgs;
+  };
+
+  // 处理调度器添加参数
+  private handleSchedulerAddParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+    
+    // 解析键值对形式的参数
+    for (const arg of args) {
+      const parts = arg.split('=');
+      if (parts.length === 2) {
+        const [key, value] = parts;
+        parsedArgs[key.trim()] = value.trim();
+      }
+    }
+    
+    return parsedArgs;
+  };
+
+  // 处理空参数的命令
+  private handleEmptyParams = (args: string[]): Record<string, any> => {
+    return {};
   };
 } 
