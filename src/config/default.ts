@@ -10,7 +10,7 @@ import { LogLevel } from '../utils/logger.js';
  */
 const defaultConfig: any = {
   // 基础配置
-  DATA_DIR: path.join(process.cwd(), 'data'),
+  DATA_DIR: path.join(process.cwd(), 'tmp'),
   BASE_URL: 'https://sepolia.namepump.com',
 
   // 区块链配置

@@ -1,13 +1,11 @@
 /**
  * 配置加载器
  */
-import * as dotenv from 'dotenv';
 import { Config } from '../types/index.js';
-import defaultConfig from './default.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
+import defaultConfig from './default.js';
 
 // 获取当前文件的URL并转换为文件路径
 const __filename = fileURLToPath(import.meta.url);
@@ -19,51 +17,70 @@ const __dirname = path.dirname(__filename);
  */
 export const VERSION = '0.0.1';
 
-// 加载.env文件
-dotenv.config();
-
 /**
- * 获取数据目录，统一使用/tmp
+ * 获取数据目录，统一使用项目目录下的tmp文件夹
  */
 export function getDataDirectory(): string {
-  // if (process.env.NODE_ENV === 'production') {
-    // 生产环境使用系统临时目录
-    // return path.join('/tmp', `parabo_v${VERSION.replace(/\./g, '_')}`);
-  // } else {
-    // 开发环境使用项目目录
-    const projectRoot = path.resolve(__dirname, '../..');
-    return path.join(projectRoot, 'tmp', `parabo_v${VERSION.replace(/\./g, '_')}`);
-  // }
+  const projectRoot = path.resolve(__dirname, '../..');
+  return path.join(projectRoot, 'tmp', `parabo_v${VERSION.replace(/\./g, '_')}`);
+}
+
+/**
+ * 加载配置文件
+ */
+function loadConfig(): Config {
+  const configPath = path.join(__dirname, 'config.json');
+  
+  let configData: any = { ...defaultConfig };
+  
+  // 尝试加载自定义配置
+  try {
+    if (fs.existsSync(configPath)) {
+      const configFileContent = fs.readFileSync(configPath, 'utf8');
+      const userConfig = JSON.parse(configFileContent);
+      // 合并配置，自定义配置优先
+      configData = { ...configData, ...userConfig };
+      console.log('已加载自定义配置文件');
+    } else {
+      console.log('未找到自定义配置文件，将使用默认配置');
+    }
+  } catch (error) {
+    console.error('加载自定义配置文件失败:', error);
+  }
+  
+  return configData;
 }
 
 /**
  * 构建应用配置
  */
+const configData = loadConfig();
+
 const config: Config = {
   // 基础配置
   DATA_DIR: getDataDirectory(),
-  BASE_URL: process.env.BASE_URL || defaultConfig.BASE_URL,
+  BASE_URL: configData.BASE_URL || 'http://localhost:3000',
   VERSION,
   
   // 区块链配置
-  DEFAULT_CHAIN: process.env.DEFAULT_CHAIN || defaultConfig.DEFAULT_CHAIN,
-  DEFAULT_CONTRACT_ADDRESS: process.env.DEFAULT_CONTRACT_ADDRESS || defaultConfig.DEFAULT_CONTRACT_ADDRESS,
-  DEFAULT_RPC_URL: process.env.DEFAULT_RPC_URL || defaultConfig.DEFAULT_RPC_URL,
+  DEFAULT_CHAIN: configData.DEFAULT_CHAIN || 'ethereum',
+  DEFAULT_CONTRACT_ADDRESS: configData.DEFAULT_CONTRACT_ADDRESS || '',
+  DEFAULT_RPC_URL: configData.DEFAULT_RPC_URL || '',
   
   // Bot平台配置
-  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || defaultConfig.TELEGRAM_TOKEN,
-  LARK_APP_ID: process.env.LARK_APP_ID,
-  LARK_APP_SECRET: process.env.LARK_APP_SECRET,
+  TELEGRAM_TOKEN: configData.TELEGRAM_TOKEN || '',
+  LARK_APP_ID: configData.LARK_APP_ID,
+  LARK_APP_SECRET: configData.LARK_APP_SECRET,
   
   // 日志配置
-  LOG_LEVEL: process.env.LOG_LEVEL || defaultConfig.LOG_LEVEL,
+  LOG_LEVEL: configData.LOG_LEVEL || 'info',
 
-  GRAPH_URL: process.env.GRAPH_URL || defaultConfig.GRAPH_URL,
-  GRAPH_API_KEY: process.env.GRAPH_API_KEY || defaultConfig.GRAPH_API_KEY,
+  GRAPH_URL: configData.GRAPH_URL || '',
+  GRAPH_API_KEY: configData.GRAPH_API_KEY || '',
   
   // AI服务配置
-  AI_TEXT_ENDPOINT: process.env.AI_TEXT_ENDPOINT || defaultConfig.AI_TEXT_ENDPOINT,
-  AI_IMAGE_ENDPOINT: process.env.AI_IMAGE_ENDPOINT || defaultConfig.AI_IMAGE_ENDPOINT,
+  AI_TEXT_ENDPOINT: configData.AI_TEXT_ENDPOINT || '',
+  AI_IMAGE_ENDPOINT: configData.AI_IMAGE_ENDPOINT || '',
   
   // 确保目录存在
   ensureDirectories() {
@@ -98,27 +115,12 @@ config.ensureDirectories();
 function validateConfig(config: Config): void {
   // 验证基础配置
   if (!config.BASE_URL) {
-    throw new Error('配置错误: 缺少BASE_URL');
+    console.warn('配置警告: 缺少BASE_URL，使用默认值');
   }
   
-  // 创建数据目录
-  if (config.DATA_DIR) {
-    try {
-      if (!fs.existsSync(config.DATA_DIR)) {
-        fs.mkdirSync(config.DATA_DIR, { recursive: true });
-      }
-      
-      // 创建子目录
-      const subdirs = ['users', 'images', 'metadata'];
-      for (const dir of subdirs) {
-        const fullPath = path.join(config.DATA_DIR, dir);
-        if (!fs.existsSync(fullPath)) {
-          fs.mkdirSync(fullPath, { recursive: true });
-        }
-      }
-    } catch (error) {
-      console.error(`无法创建数据目录: ${config.DATA_DIR}`, error);
-    }
+  // 检查关键配置
+  if (!config.TELEGRAM_TOKEN) {
+    console.warn('配置警告: 缺少TELEGRAM_TOKEN，Telegram平台可能无法正常工作');
   }
   
   // 输出临时目录警告
