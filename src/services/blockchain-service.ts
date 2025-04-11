@@ -22,6 +22,22 @@ interface TransactionOptions {
 }
 
 /**
+ * 批量发送ETH的结果
+ */
+export interface MulticallSendResult {
+  txHash: string;
+  sourceAddress: string;
+  targets: {
+    address: string;
+    amount: string;
+    success: boolean;
+    error?: string;
+  }[];
+  gasUsed?: string;
+  totalAmount: string;
+}
+
+/**
  * 区块链服务
  */
 export class BlockchainService {
@@ -187,6 +203,119 @@ export class BlockchainService {
     } catch (error) {
       logger.error(`检查交易状态失败: ${txHash}`, error);
       return { confirmed: false };
+    }
+  }
+
+  /**
+   * 批量发送ETH给多个地址
+   * @param privateKey 私钥（不会保存）
+   * @param targets 目标地址数组
+   * @param amount 每个地址发送的ETH数量（单位：ETH）
+   * @param rpcUrl RPC URL
+   * @returns 交易结果
+   */
+  public async multicallSendEth(
+    privateKey: string,
+    targets: string[],
+    amount: string,
+    rpcUrl: string
+  ): Promise<MulticallSendResult> {
+    try {
+      // 验证参数
+      if (!privateKey) throw new Error('缺少私钥');
+      if (!targets || targets.length === 0) throw new Error('缺少目标地址');
+      if (!amount) throw new Error('缺少发送金额');
+      if (!rpcUrl) throw new Error('缺少RPC URL');
+
+      // 创建临时钱包（不会保存到存储中）
+      const sourceWallet = new ethers.Wallet(privateKey, this.getProvider(rpcUrl));
+      const sourceAddress = sourceWallet.address;
+      
+      // 计算所需总金额（包括gas预估）
+      const amountWei = ethers.utils.parseEther(amount);
+      const totalAmount = amountWei.mul(targets.length);
+      
+      // 检查源钱包余额是否足够
+      const balance = await sourceWallet.getBalance();
+      
+      // 预留约0.01 ETH用于gas费用
+      const gasReserve = ethers.utils.parseEther('0.01');
+      
+      if (balance.lt(totalAmount.add(gasReserve))) {
+        throw new Error(`余额不足，需要至少 ${ethers.utils.formatEther(totalAmount.add(gasReserve))} ETH`);
+      }
+      
+      // 准备结果对象
+      const result: MulticallSendResult = {
+        txHash: '',
+        sourceAddress,
+        targets: [],
+        totalAmount: ethers.utils.formatEther(totalAmount)
+      };
+      
+      // 由于以太坊没有原生批量转账功能，我们通过多个单独交易来模拟
+      // 未来可以实现通过实际的multicall合约
+      logger.info(`开始批量发送ETH到${targets.length}个地址，每个地址${amount} ETH`);
+      
+      // 创建交易对象数组
+      const txPromises = targets.map(async (targetAddress, index) => {
+        try {
+          // 验证地址格式
+          if (!ethers.utils.isAddress(targetAddress)) {
+            throw new Error('无效的目标地址');
+          }
+          
+          // 准备交易
+          const tx = await sourceWallet.sendTransaction({
+            to: targetAddress,
+            value: amountWei,
+            // 为每个交易设置递增的nonce，确保它们按顺序被矿工打包
+            nonce: await sourceWallet.getTransactionCount() + index
+          });
+          
+          // 等待交易被打包
+          const receipt = await tx.wait(1);
+          
+          // 更新结果
+          result.targets.push({
+            address: targetAddress,
+            amount: amount,
+            success: true
+          });
+          
+          // 记录第一个交易的哈希（作为整体操作的标识）
+          if (index === 0) {
+            result.txHash = tx.hash;
+          }
+          
+          logger.info(`成功发送${amount} ETH到地址: ${targetAddress}`);
+          return { success: true, address: targetAddress, txHash: tx.hash };
+        } catch (error) {
+          logger.error(`发送ETH到地址${targetAddress}失败`, error);
+          result.targets.push({
+            address: targetAddress,
+            amount: amount,
+            success: false,
+            error: (error as Error).message
+          });
+          return { success: false, address: targetAddress, error };
+        }
+      });
+      
+      // 等待所有交易完成
+      await Promise.all(txPromises);
+      
+      // 计算最终余额，间接反映gas使用情况
+      const finalBalance = await sourceWallet.getBalance();
+      const gasUsed = balance.sub(finalBalance).sub(totalAmount);
+      
+      result.gasUsed = ethers.utils.formatEther(gasUsed);
+      
+      logger.info(`批量发送ETH完成，总金额: ${result.totalAmount} ETH，gas消耗: ${result.gasUsed} ETH`);
+      return result;
+    } catch (error) {
+      logger.error('批量发送ETH失败', error);
+      throw error;
     }
   }
 } 

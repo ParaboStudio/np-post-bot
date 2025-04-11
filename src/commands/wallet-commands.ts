@@ -21,6 +21,7 @@ export class WalletCommands implements CommandModule {
     router.registerHandler('wallet.delete', this.deleteWallet);
     router.registerHandler('wallet.switch', this.switchWallet);
     router.registerHandler('wallet.generate', this.generateWallets);
+    router.registerHandler('wallet.multicall_send', this.multicallSendEth);
   }
 
   /**
@@ -213,6 +214,104 @@ export class WalletCommands implements CommandModule {
       return {
         success: false,
         message: `生成HD钱包失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 批量发送ETH到生成的钱包
+   */
+  private multicallSendEth: CommandHandler = async ({ services, args }) => {
+    try {
+      // 必要参数验证
+      if (!args.privateKey) {
+        return {
+          success: false,
+          message: '缺少源钱包私钥参数'
+        };
+      }
+
+      if (!args.amount) {
+        return {
+          success: false,
+          message: '缺少发送金额参数'
+        };
+      }
+
+      // 获取当前用户
+      const userService = services.user;
+      const user = userService.getCurrentUser();
+      
+      // 获取用户的所有钱包
+      const walletService = services.wallet;
+      const wallets = walletService.getWallets(user);
+      
+      if (wallets.length === 0) {
+        return {
+          success: false,
+          message: '没有可用的目标钱包，请先生成一些钱包'
+        };
+      }
+      
+      // 获取RPC URL
+      const chainService = services.chain;
+      const currentChain = chainService.getCurrentChain();
+      const chainConfig = chainService.getCurrentChainConfig();
+
+      if (!chainConfig || !chainConfig.rpcUrl) {
+        return {
+          success: false,
+          message: '无法获取当前链的RPC URL，请先配置链'
+        };
+      }
+
+      const rpcUrl = chainConfig.rpcUrl;
+      
+      // 提取目标地址数组
+      const targetAddresses = wallets.map(wallet => wallet.address);
+      
+      // 限制一次最多处理的钱包数量，避免gas超限
+      const MAX_TARGETS = 50;
+      if (targetAddresses.length > MAX_TARGETS) {
+        return {
+          success: false,
+          message: `目标钱包数量过多 (${targetAddresses.length})，最多支持同时发送到${MAX_TARGETS}个钱包`
+        };
+      }
+      
+      logger.info(`准备向${targetAddresses.length}个钱包批量发送ETH`);
+      
+      // 调用blockchain服务的multicall方法
+      // 注意：不保存privateKey，只临时使用
+      const result = await services.blockchain.multicallSendEth(
+        args.privateKey,
+        targetAddresses,
+        args.amount,
+        rpcUrl
+      );
+      
+      // 统计成功和失败的数量
+      const successCount = result.targets.filter(t => t.success).length;
+      const failCount = result.targets.length - successCount;
+      
+      return {
+        success: true,
+        message: `批量发送ETH完成: ${successCount}成功，${failCount}失败`,
+        data: {
+          txHash: result.txHash,
+          sourceAddress: result.sourceAddress,
+          totalAmount: result.totalAmount,
+          gasUsed: result.gasUsed,
+          successCount,
+          failCount,
+          targets: result.targets
+        }
+      };
+    } catch (error) {
+      logger.error('批量发送ETH失败', error);
+      return {
+        success: false,
+        message: `批量发送ETH失败: ${(error as Error).message || String(error)}`
       };
     }
   };

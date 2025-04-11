@@ -303,6 +303,20 @@ const commands: Record<string, CommandDefinition> = {
       { name: 'index', description: '钱包索引', required: true }
     ],
     category: '钱包'
+  },
+  'wallet.multicall_send': {
+    platforms: {
+      telegram: { command: 'wallet_funding' },
+      cli: { command: 'wallet funding' },
+      api: { endpoint: '/api/wallet/funding' }
+    },
+    handler: 'WalletCommands.multicallSendEth',
+    description: '批量发送ETH到生成的钱包',
+    params: [
+      { name: 'privateKey', description: '源钱包私钥', required: true },
+      { name: 'amount', description: '每个钱包发送的ETH数量', required: true }
+    ],
+    category: '钱包'
   }
 };
 
