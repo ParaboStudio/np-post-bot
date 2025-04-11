@@ -2,6 +2,7 @@
  * Telegram命令映射模块
  * 负责将Telegram命令映射到内部命令
  */
+import commands from '../../config/commands.js';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -9,60 +10,54 @@ import { logger } from '../../utils/logger.js';
  */
 export class TelegramCommandsMap {
   // 命令映射表 - 将Telegram命令映射到内部命令
-  private commandMap: Record<string, string> = {
-    // 基本命令
-    'start': 'start',
-    'help': 'help',
-    'info': 'info',
+  private commandMap: Record<string, string> = {};
+  private commandDefinitions: Array<{
+    command: string;
+    internalCommand: string;
+    description: string;
+    params: Array<{name: string; description: string; required: boolean;}>;
+  }> = [];
 
-    // 内容相关命令
-    'generate': 'content.generate',
-    'list': 'content.list',
-    'content_generate': 'content.generate',
-    'content_list': 'content.list',
-    'content_add': 'content.add',
-    'content_delete': 'content.delete',
-    'content_detail': 'content.detail',
-    'content_list_detail': 'content.detail',
+  constructor() {
+    this.buildCommandMaps();
+  }
 
-    // 发布相关命令
-    'publish': 'publish.content',
-    'quick_publish': 'publish.quick',
+  /**
+   * 从统一命令配置构建映射表
+   */
+  private buildCommandMaps(): void {
+    // 清空映射表
+    this.commandMap = {};
+    this.commandDefinitions = [];
 
-    // 钱包相关命令
-    'wallet_add': 'wallet.add',
-    'wallet_list': 'wallet.list',
-    'wallet_delete': 'wallet.delete',
-    'wallet_switch': 'wallet.switch',
+    // 遍历所有命令
+    for (const [internalCommand, definition] of Object.entries(commands)) {
+      // 只处理支持Telegram平台的命令
+      if (definition.platforms.telegram) {
+        const { command, aliases } = definition.platforms.telegram;
+        
+        // 添加主命令
+        this.commandMap[command] = internalCommand;
+        
+        // 添加到命令定义
+        this.commandDefinitions.push({
+          command,
+          internalCommand,
+          description: definition.description,
+          params: definition.params
+        });
+        
+        // 添加别名
+        if (aliases && aliases.length > 0) {
+          for (const alias of aliases) {
+            this.commandMap[alias] = internalCommand;
+          }
+        }
+      }
+    }
 
-    // 用户相关命令
-    'user_add': 'user.add',
-    'user_list': 'user.list',
-    'user_delete': 'user.delete',
-    'user_switch': 'user.switch',
-
-    // 调度器相关命令
-    'scheduler_status': 'scheduler.status',
-    'scheduler_start': 'scheduler.start',
-    'scheduler_stop': 'scheduler.stop',
-    'scheduler_config': 'scheduler.config',
-    'scheduler_update': 'scheduler.update',
-    
-    // 添加新的schedule_命令映射
-    'schedule_add': 'scheduler.add_task',
-    'schedule_list': 'scheduler.list_tasks',
-    'schedule_delete': 'scheduler.delete_task',
-    'schedule_enable': 'scheduler.enable_task',
-    'schedule_disable': 'scheduler.disable_task',
-    'schedule_execute': 'scheduler.execute_task',
-
-    // 系统相关命令
-    'system_info': 'system.info',
-    'system_diagnose': 'system.diagnose',
-    'system_cache': 'system.cache',
-    'system_version': 'system.version',
-    'system_clear_images': 'system.clear_images'
-  };
+    logger.info(`已加载 ${this.commandDefinitions.length} 个Telegram命令`);
+  }
 
   /**
    * 将Telegram命令映射到内部命令
@@ -88,20 +83,20 @@ export class TelegramCommandsMap {
    * 获取Telegram机器人命令列表
    */
   public getBotCommands(): Array<{ command: string; description: string }> {
-    return [
-      { command: 'start', description: '开始使用机器人' },
-      { command: 'help', description: '显示帮助信息' },
-      { command: 'content_generate', description: '生成内容 <社区> [提示词]' },
-      { command: 'content_list', description: '列出内容 <社区> [序号/ID]' },
-      { command: 'publish', description: '发布内容 <社区> <序号> [钱包索引]' },
-      { command: 'quick_publish', description: '快速发布 <社区> [文本]' },
-      { command: 'wallet_add', description: '添加钱包 <私钥>' },
-      { command: 'wallet_list', description: '列出钱包' },
-      { command: 'schedule_add', description: '添加调度任务 time=HH:MM community=社区' },
-      { command: 'schedule_list', description: '列出所有调度任务' },
-      { command: 'scheduler_status', description: '查看调度器状态' },
-      { command: 'system_info', description: '显示系统信息' },
-      { command: 'system_clear_images', description: '清理图片 [命名模式]' }
-    ];
+    return this.commandDefinitions.map(def => {
+      let description = def.description;
+      
+      // 添加参数信息到描述
+      if (def.params && def.params.length > 0) {
+        description += ' ' + def.params.map(param => {
+          return param.required ? `<${param.name}>` : `[${param.name}]`;
+        }).join(' ');
+      }
+      
+      return {
+        command: def.command,
+        description
+      };
+    });
   }
 } 

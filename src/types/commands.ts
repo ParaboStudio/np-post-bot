@@ -8,8 +8,8 @@ import { ServiceContainer } from '../services/index.js';
  */
 export interface CommandContext {
   userId: string;
-  isAdmin?: boolean;
-  metadata?: Record<string, any>;
+  platform?: string;
+  platformData?: any;
 }
 
 /**
@@ -26,7 +26,7 @@ export interface CommandHandlerParams {
  */
 export interface CommandResult {
   success: boolean;
-  message: string;
+  message?: string;
   data?: any;
 }
 
@@ -97,4 +97,69 @@ export interface WalletCommandParams {
  */
 export interface CommunityInfoParams {
   community: string;
+}
+
+/**
+ * 命令定义相关类型
+ */
+
+/**
+ * 命令参数定义
+ */
+export interface CommandParam {
+  name: string;
+  description: string;
+  required: boolean;
+}
+
+/**
+ * 平台特定命令配置
+ */
+export interface PlatformCommandConfig {
+  // 电报平台配置
+  telegram?: {
+    command: string;
+    aliases?: string[];
+    specialHandler?: string;
+  };
+  
+  // CLI平台配置
+  cli?: {
+    command: string;
+  };
+  
+  // API平台配置
+  api?: {
+    endpoint: string;
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  };
+}
+
+/**
+ * 统一命令定义
+ */
+export interface CommandDefinition {
+  // 支持的平台及平台特定配置
+  platforms: PlatformCommandConfig;
+  
+  // 命令处理器
+  handler: string;
+  
+  // 命令描述
+  description: string;
+  
+  // 命令参数
+  params: CommandParam[];
+  
+  // 命令分类
+  category: string;
+}
+
+/**
+ * 命令处理参数
+ */
+export interface CommandParams {
+  services: any;
+  args: any;
+  context: CommandContext;
 } 
