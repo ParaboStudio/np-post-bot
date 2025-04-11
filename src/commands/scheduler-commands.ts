@@ -7,6 +7,7 @@ import { CommandRouter } from './command-router';
 import fs from 'fs/promises';
 import path from 'path';
 import logger from '../utils/logger.js';
+import { setTimeout } from 'timers/promises';
 
 // 调度任务接口
 interface ScheduleTask {
@@ -40,7 +41,7 @@ export class SchedulerCommands implements CommandModule {
     this.dataDir = path.join(process.cwd(), 'data');
     this.tasksConfigPath = path.join(this.configDir, 'schedule-tasks.json');
     this.historyPath = path.join(this.dataDir, 'schedule-history.json');
-    
+
     // 确保必要目录存在
     this.ensureDirectories();
   }
@@ -67,7 +68,7 @@ export class SchedulerCommands implements CommandModule {
     router.registerHandler('scheduler.status', this.getSchedulerStatus);
     router.registerHandler('scheduler.config', this.getSchedulerConfig);
     router.registerHandler('scheduler.update', this.updateSchedulerConfig);
-    
+
     // 新增的调度任务管理命令
     router.registerHandler('scheduler.add_task', this.addScheduleTask);
     router.registerHandler('scheduler.list_tasks', this.listScheduleTasks);
@@ -88,12 +89,12 @@ export class SchedulerCommands implements CommandModule {
       } catch (error) {
         // 文件不存在，创建空的任务列表
         await fs.writeFile(
-          this.tasksConfigPath, 
+          this.tasksConfigPath,
           JSON.stringify({ tasks: [] }, null, 2)
         );
         return [];
       }
-      
+
       // 读取配置文件
       const content = await fs.readFile(this.tasksConfigPath, 'utf8');
       const data = JSON.parse(content);
@@ -110,7 +111,7 @@ export class SchedulerCommands implements CommandModule {
   private async saveTasks(tasks: ScheduleTask[]): Promise<boolean> {
     try {
       await fs.writeFile(
-        this.tasksConfigPath, 
+        this.tasksConfigPath,
         JSON.stringify({ tasks }, null, 2)
       );
       return true;
@@ -123,14 +124,14 @@ export class SchedulerCommands implements CommandModule {
   /**
    * 添加调度任务
    */
-  private addScheduleTask: CommandHandler = async ({ args, user }) => {
+  private addScheduleTask: CommandHandler = async ({ args, context }) => {
     try {
       // 验证参数
       const time = args.time;
       const community = args.community;
       const contentCount = parseInt(args.count);
       const interval = parseInt(args.interval);
-      
+
       // 验证时间格式
       if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
         return {
@@ -138,31 +139,31 @@ export class SchedulerCommands implements CommandModule {
           message: '时间格式不正确，应为HH:MM (例如 08:30)'
         };
       }
-      
+
       if (!community) {
         return {
           success: false,
           message: '请指定目标社区'
         };
       }
-      
+
       if (isNaN(contentCount) || contentCount < 1) {
         return {
           success: false,
           message: '发布数量必须是大于0的整数'
         };
       }
-      
+
       if (isNaN(interval) || interval < 1) {
         return {
           success: false,
           message: '间隔时间必须是大于0的整数(分钟)'
         };
       }
-      
+
       // 生成唯一ID
       const taskId = `task_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-      
+
       // 创建新任务
       const newTask: ScheduleTask = {
         id: taskId,
@@ -172,19 +173,19 @@ export class SchedulerCommands implements CommandModule {
         interval,
         contentType: args.type || 'default',
         enabled: true,
-        createdBy: user?.username || 'unknown',
+        createdBy: context?.userId || 'unknown',
         createdAt: new Date().toISOString()
       };
-      
+
       // 加载现有任务
       const tasks = await this.loadTasks();
-      
+
       // 添加新任务
       tasks.push(newTask);
-      
+
       // 保存更新后的任务列表
       const success = await this.saveTasks(tasks);
-      
+
       if (success) {
         return {
           success: true,
@@ -213,17 +214,17 @@ export class SchedulerCommands implements CommandModule {
     try {
       // 加载任务
       const tasks = await this.loadTasks();
-      
+
       if (tasks.length === 0) {
         return {
           success: true,
           message: '当前没有定时任务'
         };
       }
-      
+
       // 构建任务列表消息
       let message = '📋 定时任务列表:\n\n';
-      
+
       for (const task of tasks) {
         const status = task.enabled ? '✅ 已启用' : '❌ 已禁用';
         message += `🔸 ID: ${task.id}\n`;
@@ -233,12 +234,12 @@ export class SchedulerCommands implements CommandModule {
         message += `📌 状态: ${status}\n`;
         message += `👤 创建者: ${task.createdBy}\n\n`;
       }
-      
+
       message += '📝 使用 /schedule_delete ID 删除任务\n';
       message += '📝 使用 /schedule_enable ID 启用任务\n';
       message += '📝 使用 /schedule_disable ID 禁用任务\n';
       message += '📝 使用 /schedule_execute ID 立即执行任务';
-      
+
       return {
         success: true,
         message,
@@ -259,36 +260,36 @@ export class SchedulerCommands implements CommandModule {
   private deleteScheduleTask: CommandHandler = async ({ args }) => {
     try {
       const taskId = args.id;
-      
+
       if (!taskId) {
         return {
           success: false,
           message: '请提供要删除的任务ID'
         };
       }
-      
+
       // 加载任务
       const tasks = await this.loadTasks();
-      
+
       // 查找任务索引
       const taskIndex = tasks.findIndex(task => task.id === taskId);
-      
+
       if (taskIndex === -1) {
         return {
           success: false,
           message: `未找到ID为 ${taskId} 的任务`
         };
       }
-      
+
       // 保存任务详情用于响应
       const taskDetails = tasks[taskIndex];
-      
+
       // 删除任务
       tasks.splice(taskIndex, 1);
-      
+
       // 保存更新后的任务列表
       const success = await this.saveTasks(tasks);
-      
+
       if (success) {
         return {
           success: true,
@@ -315,27 +316,27 @@ export class SchedulerCommands implements CommandModule {
   private enableScheduleTask: CommandHandler = async ({ args }) => {
     try {
       const taskId = args.id;
-      
+
       if (!taskId) {
         return {
           success: false,
           message: '请提供要启用的任务ID'
         };
       }
-      
+
       // 加载任务
       const tasks = await this.loadTasks();
-      
+
       // 查找任务
       const task = tasks.find(task => task.id === taskId);
-      
+
       if (!task) {
         return {
           success: false,
           message: `未找到ID为 ${taskId} 的任务`
         };
       }
-      
+
       // 如果任务已经启用
       if (task.enabled) {
         return {
@@ -343,13 +344,13 @@ export class SchedulerCommands implements CommandModule {
           message: `任务已经处于启用状态:\n\nID: ${taskId}\n时间: ${task.time}\n社区: ${task.community}`
         };
       }
-      
+
       // 启用任务
       task.enabled = true;
-      
+
       // 保存更新后的任务列表
       const success = await this.saveTasks(tasks);
-      
+
       if (success) {
         return {
           success: true,
@@ -376,27 +377,27 @@ export class SchedulerCommands implements CommandModule {
   private disableScheduleTask: CommandHandler = async ({ args }) => {
     try {
       const taskId = args.id;
-      
+
       if (!taskId) {
         return {
           success: false,
           message: '请提供要禁用的任务ID'
         };
       }
-      
+
       // 加载任务
       const tasks = await this.loadTasks();
-      
+
       // 查找任务
       const task = tasks.find(task => task.id === taskId);
-      
+
       if (!task) {
         return {
           success: false,
           message: `未找到ID为 ${taskId} 的任务`
         };
       }
-      
+
       // 如果任务已经禁用
       if (!task.enabled) {
         return {
@@ -404,13 +405,13 @@ export class SchedulerCommands implements CommandModule {
           message: `任务已经处于禁用状态:\n\nID: ${taskId}\n时间: ${task.time}\n社区: ${task.community}`
         };
       }
-      
+
       // 禁用任务
       task.enabled = false;
-      
+
       // 保存更新后的任务列表
       const success = await this.saveTasks(tasks);
-      
+
       if (success) {
         return {
           success: true,
@@ -434,36 +435,36 @@ export class SchedulerCommands implements CommandModule {
   /**
    * 立即执行调度任务
    */
-  private executeScheduleTask: CommandHandler = async ({ args, services, user }) => {
+  private executeScheduleTask: CommandHandler = async ({ args, services, context }) => {
     try {
       const taskId = args.id;
-      
+
       if (!taskId) {
         return {
           success: false,
           message: '请提供要执行的任务ID'
         };
       }
-      
+
       // 加载任务
       const tasks = await this.loadTasks();
-      
+
       // 查找任务
       const task = tasks.find(task => task.id === taskId);
-      
+
       if (!task) {
         return {
           success: false,
           message: `未找到ID为 ${taskId} 的任务`
         };
       }
-      
+
       // 提示正在执行
       const message = `正在执行定时任务:\n\nID: ${taskId}\n时间: ${task.time}\n社区: ${task.community}\n发布数量: ${task.contentCount}条\n\n执行结果将另行通知。`;
-      
+
       // 异步执行任务，不等待完成
-      this.executeTaskAsync(task, services, user);
-      
+      this.executeTaskAsync(task, services, context);
+
       return {
         success: true,
         message
@@ -483,48 +484,50 @@ export class SchedulerCommands implements CommandModule {
   private async executeTaskAsync(task: ScheduleTask, services: any, user: any) {
     try {
       logger.info(`开始执行任务 ${task.id}: 在 ${task.community} 发布 ${task.contentCount} 条内容`);
-      
+
       const contentService = services.contentService;
       const publishService = services.publishService;
-      
+
       if (!contentService || !publishService) {
         logger.error('服务未初始化，无法执行任务');
         return;
       }
-      
+
       const results = [];
-      
+
       // 执行多次内容发布
       for (let i = 0; i < task.contentCount; i++) {
         // 如果不是第一次发布，等待指定的间隔时间
+
         if (i > 0) {
-          logger.info(`等待 ${task.interval} 分钟后发布下一条内容...`);
-          await new Promise(resolve => setTimeout(resolve, task.interval * 60 * 1000));
+          const waitTimeMs = Math.min(task.interval * 60 * 1000, 5 * 60 * 1000);
+          logger.info(`等待 ${waitTimeMs / 1000} 秒后发布下一条内容...`);
+          await setTimeout(waitTimeMs);
         }
-        
+
         try {
           // 获取要发布的内容
           const content = await contentService.getContent(task.contentType);
-          
+
           // 发布内容到指定社区
           const publishResult = await publishService.publish({
             community: task.community,
             content,
             user: user
           });
-          
-          logger.info(`发布 #${i+1} 结果:`, publishResult);
-          results.push(`✅ 发布 #${i+1}: 成功`);
+
+          logger.info(`发布 #${i + 1} 结果:`, publishResult);
+          results.push(`✅ 发布 #${i + 1}: 成功`);
         } catch (error) {
-          logger.error(`发布 #${i+1} 失败:`, error);
-          results.push(`❌ 发布 #${i+1}: 失败 - ${(error as Error).message || String(error)}`);
+          logger.error(`发布 #${i + 1} 失败:`, error);
+          results.push(`❌ 发布 #${i + 1}: 失败 - ${(error as Error).message || String(error)}`);
         }
       }
-      
+
       logger.info(`任务 ${task.id} 执行完成，结果:`, results);
-      
+
       // 这里可以添加发送结果通知的逻辑
-      
+
     } catch (error) {
       logger.error(`执行任务 ${task.id} 过程中出错:`, error);
     }
