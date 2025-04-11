@@ -40,6 +40,8 @@ program
   .option('--community <community>', '目标社区')
   .option('--contentType <type>', '内容类型', 'default')
   .option('--useCache', '是否使用缓存内容列表', false)
+  .option('--randomWallet', '是否随机选择钱包', false)
+  .option('--walletIndex <index>', '指定钱包索引')
   .action(async (options) => {
     // 初始化服务
     const initialized = await initServices();
@@ -54,13 +56,29 @@ program
           process.exit(1);
         }
         
-        logger.info(`正在发布内容到社区 ${options.community}，类型: ${options.contentType}，使用缓存: ${options.useCache ? '是' : '否'}`);
+        // 检查钱包相关选项
+        if (options.randomWallet && options.walletIndex !== undefined) {
+          logger.warn('设置了--randomWallet和--walletIndex，将使用随机钱包');
+        }
+        
+        let walletInfoMsg = '';
+        if (options.randomWallet) {
+          walletInfoMsg = '使用随机钱包';
+        } else if (options.walletIndex !== undefined) {
+          walletInfoMsg = `使用钱包索引: ${options.walletIndex}`;
+        } else {
+          walletInfoMsg = '使用默认钱包';
+        }
+        
+        logger.info(`正在发布内容到社区 ${options.community}，类型: ${options.contentType}，使用缓存: ${options.useCache ? '是' : '否'}，${walletInfoMsg}`);
         
         // 执行发布命令
         const result = await commandRouter.route('content.publish', {
           community: options.community,
           contentType: options.contentType,
-          useCache: options.useCache
+          useCache: options.useCache,
+          randomWallet: options.randomWallet,
+          walletIndex: options.walletIndex !== undefined ? parseInt(options.walletIndex) : undefined
         }, {
           userId: 'scheduler',
           role: 'admin',

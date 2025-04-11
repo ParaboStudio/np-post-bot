@@ -158,6 +158,7 @@ export class ContentCommands implements CommandModule {
   /**
    * 发布内容
    * 支持从缓存列表中选择内容发布，如果缓存中没有可用内容则生成新内容
+   * 支持随机选择钱包发布
    */
   private publishContent: CommandHandler = async ({ services, args, context }) => {
     try {
@@ -170,8 +171,34 @@ export class ContentCommands implements CommandModule {
       
       const ensLabel = args.community;
       const useCache = args.useCache === true;
+      const useRandomWallet = args.randomWallet === true;
       
-      logger.info(`发布内容到社区 ${ensLabel}，使用缓存: ${useCache ? '是' : '否'}`);
+      // 钱包选择逻辑
+      let walletIndex = args.walletIndex;
+      
+      // 如果启用随机钱包
+      if (useRandomWallet) {
+        // 获取钱包服务
+        const walletService = services.wallet;
+        
+        try {
+          // 获取可用钱包列表
+          const wallets = walletService.getWallets(context.userId);
+          
+          if (wallets && wallets.length > 0) {
+            // 随机选择一个钱包
+            const randomIndex = Math.floor(Math.random() * wallets.length);
+            walletIndex = randomIndex;
+            logger.info(`随机选择钱包索引: ${walletIndex}`);
+          } else {
+            logger.warn('没有可用钱包，将使用默认钱包');
+          }
+        } catch (error) {
+          logger.warn('获取钱包列表失败，将使用默认钱包', error);
+        }
+      }
+      
+      logger.info(`发布内容到社区 ${ensLabel}，使用缓存: ${useCache ? '是' : '否'}，钱包索引: ${walletIndex !== undefined ? walletIndex : '默认'}`);
       
       // 获取服务
       const postingService = services.posting;
@@ -200,17 +227,18 @@ export class ContentCommands implements CommandModule {
           const result = await postingService.publishContent(
             ensLabel,
             contentToPublish.id,
-            args.walletIndex,
+            walletIndex,
             context.userId
           );
           
           return {
             success: true,
-            message: `使用缓存内容发布成功，内容ID: ${contentToPublish.id}`,
+            message: `使用缓存内容发布成功，内容ID: ${contentToPublish.id}，钱包索引: ${walletIndex !== undefined ? walletIndex : '默认'}`,
             data: {
               ...result,
               contentId: contentToPublish.id,
-              fromCache: true
+              fromCache: true,
+              walletIndex
             }
           };
         } else {
@@ -222,16 +250,17 @@ export class ContentCommands implements CommandModule {
       const result = await postingService.quickPublish(
         ensLabel,
         '', // 不指定文本，由AI生成
-        args.walletIndex,
+        walletIndex,
         context.userId
       );
       
       return {
         success: true,
-        message: '内容生成并发布成功',
+        message: `内容生成并发布成功，钱包索引: ${walletIndex !== undefined ? walletIndex : '默认'}`,
         data: {
           ...result,
-          fromCache: false
+          fromCache: false,
+          walletIndex
         }
       };
     } catch (error) {

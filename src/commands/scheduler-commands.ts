@@ -18,6 +18,8 @@ interface ScheduleTask {
   interval: number;
   contentType?: string;
   useCache?: boolean;
+  walletIndex?: number;     // 指定钱包索引
+  useRandomWallet?: boolean; // 是否使用随机钱包
   enabled: boolean;
   createdBy: string;
   createdAt: string;
@@ -133,6 +135,20 @@ export class SchedulerCommands implements CommandModule {
       const contentCount = parseInt(args.count);
       const interval = parseInt(args.interval);
       const useCache = args.useCache === 'true' || args.useCache === true;
+      const useRandomWallet = args.randomWallet === 'true' || args.randomWallet === true;
+      let walletIndex = undefined;
+      
+      // 只有当不使用随机钱包时，才处理钱包索引
+      if (!useRandomWallet && args.walletIndex !== undefined) {
+        walletIndex = parseInt(args.walletIndex);
+        // 验证钱包索引
+        if (isNaN(walletIndex) || walletIndex < 0) {
+          return {
+            success: false,
+            message: '钱包索引必须是大于等于0的整数'
+          };
+        }
+      }
 
       // 验证时间格式
       if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
@@ -175,6 +191,8 @@ export class SchedulerCommands implements CommandModule {
         interval,
         contentType: args.type || 'default',
         useCache,
+        walletIndex,
+        useRandomWallet,
         enabled: true,
         createdBy: context?.userId || 'unknown',
         createdAt: new Date().toISOString()
@@ -190,9 +208,19 @@ export class SchedulerCommands implements CommandModule {
       const success = await this.saveTasks(tasks);
 
       if (success) {
+        // 构建钱包信息消息
+        let walletMessage = '';
+        if (useRandomWallet) {
+          walletMessage = '使用随机钱包';
+        } else if (walletIndex !== undefined) {
+          walletMessage = `使用钱包索引: ${walletIndex}`;
+        } else {
+          walletMessage = '使用默认钱包';
+        }
+        
         return {
           success: true,
-          message: `已添加定时任务！\n\nID: ${taskId}\n时间: ${time}\n社区: ${community}\n发布数量: ${contentCount}\n间隔: ${interval}分钟\n使用缓存: ${useCache ? '是' : '否'}`,
+          message: `已添加定时任务！\n\nID: ${taskId}\n时间: ${time}\n社区: ${community}\n发布数量: ${contentCount}\n间隔: ${interval}分钟\n使用缓存: ${useCache ? '是' : '否'}\n钱包设置: ${walletMessage}`,
           data: newTask
         };
       } else {
@@ -236,6 +264,16 @@ export class SchedulerCommands implements CommandModule {
         message += `🌐 社区: ${task.community}\n`;
         message += `📊 发布: ${task.contentCount}条，间隔${task.interval}分钟\n`;
         message += `🔄 使用缓存: ${useCache}\n`;
+        
+        // 添加钱包信息
+        if (task.useRandomWallet) {
+          message += `💼 钱包: 随机选择\n`;
+        } else if (task.walletIndex !== undefined) {
+          message += `💼 钱包: 索引 ${task.walletIndex}\n`;
+        } else {
+          message += `💼 钱包: 使用默认\n`;
+        }
+        
         message += `📌 状态: ${status}\n`;
         message += `👤 创建者: ${task.createdBy}\n\n`;
       }

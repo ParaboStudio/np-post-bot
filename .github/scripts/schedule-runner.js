@@ -161,7 +161,11 @@ async function executeTask(task) {
       // 构建发布命令
       // 注意：在ES模块环境中执行
       const useCache = task.useCache === true ? '--useCache' : '';
-      const publishCommand = `node --experimental-modules dist/schedule-cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}" ${useCache}`;
+      const useRandomWallet = task.useRandomWallet === true ? '--randomWallet' : '';
+      const walletParam = !task.useRandomWallet && task.walletIndex !== undefined ? 
+        `--walletIndex=${task.walletIndex}` : '';
+
+      const publishCommand = `node --experimental-modules dist/schedule-cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}" ${useCache} ${useRandomWallet} ${walletParam}`;
       
       console.log(`执行命令: ${publishCommand}`);
       
