@@ -1,0 +1,42 @@
+name: 定时发布任务调度器
+
+on:
+  # 定时触发，每10分钟运行一次
+  schedule:
+    - cron: '*/5 * * * *'
+  
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: '手动执行特定任务ID'
+        required: false
+        type: string
+
+jobs:
+  execute-scheduled-tasks:
+    name: 执行调度任务
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 获取完整历史以便于提交变更
+      
+      - name: 设置Node.js环境
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+          cache: 'npm'
+      
+      - name: 安装依赖
+        run: npm ci
+      
+      - name: 执行调度任务
+        env:
+          # 设置环境变量，用于认证和通知
+          # TG_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
+          MANUAL_TASK_ID: ${{ github.event.inputs.task_id }}
+        run: node .github/scripts/schedule-runner.js
