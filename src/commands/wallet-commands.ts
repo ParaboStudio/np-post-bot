@@ -23,6 +23,7 @@ export class WalletCommands implements CommandModule {
     router.registerHandler('wallet.generate', this.generateWallets);
     router.registerHandler('wallet.multicall_send', this.multicallSendEth);
     router.registerHandler('wallet.transfer_all', this.transferAllFunds);
+    router.registerHandler('wallet.export', this.exportWallets);
   }
 
   /**
@@ -387,6 +388,81 @@ export class WalletCommands implements CommandModule {
       return {
         success: false,
         message: `批量转移资金失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 导出钱包信息
+   */
+  private exportWallets: CommandHandler = async ({ services, args }) => {
+    try {
+      const format = args.format || 'json';
+      
+      if (format !== 'json' && format !== 'csv') {
+        return {
+          success: false,
+          message: '不支持的导出格式，请使用 json 或 csv'
+        };
+      }
+      
+      const storageService = services.storage;
+      const userService = services.user;
+      
+      // 获取当前用户
+      const user = userService.getCurrentUser();
+      
+      // 获取用户的所有钱包
+      const wallets = storageService.getWallets(user);
+      
+      if (wallets.length === 0) {
+        return {
+          success: false,
+          message: '没有可导出的钱包'
+        };
+      }
+      
+      // 根据格式导出
+      if (format === 'json') {
+        // JSON格式导出
+        const exportData = wallets.map(wallet => ({
+          id: wallet.id,
+          address: wallet.address,
+          createdAt: wallet.createdAt
+        }));
+        
+        return {
+          success: true,
+          message: `成功导出 ${wallets.length} 个钱包`,
+          data: {
+            format: 'json',
+            wallets: exportData,
+            count: wallets.length
+          }
+        };
+      } else {
+        // CSV格式导出
+        const csvHeader = 'ID,地址,创建时间\n';
+        const csvRows = wallets.map(wallet => 
+          `${wallet.id},${wallet.address},${wallet.createdAt}`
+        ).join('\n');
+        const csvContent = csvHeader + csvRows;
+        
+        return {
+          success: true,
+          message: `成功导出 ${wallets.length} 个钱包为 CSV 格式`,
+          data: {
+            format: 'csv',
+            content: csvContent,
+            count: wallets.length
+          }
+        };
+      }
+    } catch (error) {
+      logger.error('导出钱包失败', error);
+      return {
+        success: false,
+        message: `导出钱包失败: ${(error as Error).message || String(error)}`
       };
     }
   };

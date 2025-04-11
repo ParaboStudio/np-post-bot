@@ -73,7 +73,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule add' },
       api: { endpoint: '/api/schedule/add' }
     },
-    handler: 'SchedulerCommands.handleAddTask',
+    handler: 'SchedulerCommands.addScheduleTask',
     description: '添加定时发布任务',
     params: [
       { name: 'time', description: '发布时间(HH:MM)', required: true },
@@ -93,7 +93,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule list' },
       api: { endpoint: '/api/schedule/list' }
     },
-    handler: 'SchedulerCommands.handleListTasks',
+    handler: 'SchedulerCommands.listScheduleTasks',
     description: '列出所有定时任务',
     params: [],
     category: '调度任务'
@@ -107,7 +107,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule delete' },
       api: { endpoint: '/api/schedule/delete' }
     },
-    handler: 'SchedulerCommands.handleDeleteTask',
+    handler: 'SchedulerCommands.deleteScheduleTask',
     description: '删除定时任务',
     params: [
       { name: 'id', description: '任务ID', required: true }
@@ -123,7 +123,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule enable' },
       api: { endpoint: '/api/schedule/enable' }
     },
-    handler: 'SchedulerCommands.handleEnableTask',
+    handler: 'SchedulerCommands.enableScheduleTask',
     description: '启用定时任务',
     params: [
       { name: 'id', description: '任务ID', required: true }
@@ -139,7 +139,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule disable' },
       api: { endpoint: '/api/schedule/disable' }
     },
-    handler: 'SchedulerCommands.handleDisableTask',
+    handler: 'SchedulerCommands.disableScheduleTask',
     description: '禁用定时任务',
     params: [
       { name: 'id', description: '任务ID', required: true }
@@ -156,10 +156,72 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'schedule execute' },
       api: { endpoint: '/api/schedule/execute' }
     },
-    handler: 'SchedulerCommands.handleExecuteTask',
+    handler: 'SchedulerCommands.executeScheduleTask',
     description: '立即执行定时任务',
     params: [
       { name: 'id', description: '任务ID', required: true }
+    ],
+    category: '调度任务'
+  },
+  
+  // 调度器管理命令
+  'scheduler.status': {
+    platforms: {
+      telegram: { 
+        command: 'scheduler_status',
+        aliases: ['sched_status']
+      },
+      cli: { command: 'scheduler status' },
+      api: { endpoint: '/api/scheduler/status' }
+    },
+    handler: 'SchedulerCommands.getSchedulerStatus',
+    description: '查看调度器状态',
+    params: [],
+    category: '调度任务'
+  },
+  'scheduler.start': {
+    platforms: {
+      telegram: { 
+        command: 'scheduler_start',
+        aliases: ['sched_start']
+      },
+      cli: { command: 'scheduler start' },
+      api: { endpoint: '/api/scheduler/start' }
+    },
+    handler: 'SchedulerCommands.startScheduler',
+    description: '启动调度器',
+    params: [],
+    category: '调度任务'
+  },
+  'scheduler.stop': {
+    platforms: {
+      telegram: { 
+        command: 'scheduler_stop',
+        aliases: ['sched_stop']
+      },
+      cli: { command: 'scheduler stop' },
+      api: { endpoint: '/api/scheduler/stop' }
+    },
+    handler: 'SchedulerCommands.stopScheduler',
+    description: '停止调度器',
+    params: [],
+    category: '调度任务'
+  },
+  'scheduler.update': {
+    platforms: {
+      telegram: { 
+        command: 'scheduler_update',
+        aliases: ['sched_update']
+      },
+      cli: { command: 'scheduler update' },
+      api: { endpoint: '/api/scheduler/update' }
+    },
+    handler: 'SchedulerCommands.updateSchedulerConfig',
+    description: '更新调度器配置',
+    params: [
+      { name: 'interval', description: '执行间隔(分钟)', required: false },
+      { name: 'cronExpression', description: 'cron表达式', required: false },
+      { name: 'useRandomContent', description: '使用随机内容', required: false }
     ],
     category: '调度任务'
   },
@@ -196,7 +258,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'content generate' },
       api: { endpoint: '/api/content/generate' }
     },
-    handler: 'ContentCommands.handleGenerate',
+    handler: 'ContentCommands.generateContent',
     description: '生成内容',
     params: [
       { name: 'community', description: '社区标识', required: true },
@@ -213,7 +275,7 @@ const commands: Record<string, CommandDefinition> = {
       cli: { command: 'content list' },
       api: { endpoint: '/api/content/list' }
     },
-    handler: 'ContentCommands.handleList',
+    handler: 'ContentCommands.listContents',
     description: '列出内容',
     params: [
       { name: 'community', description: '社区标识', required: true },
