@@ -5,7 +5,7 @@ import config from './config/index.js';
 import { initServices } from './services/index.js';
 import { initCommandRouter } from './commands/index.js';
 import { PlatformManager } from './platforms/platform-manager.js';
-import { TelegramPlatform } from './platforms/telegram-platform.js';
+import { TelegramPlatform } from './platforms/telegram/index.js';
 import { ApiPlatform } from './platforms/api-platform.js';
 import logger from './utils/logger.js';
 
