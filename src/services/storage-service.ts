@@ -26,7 +26,7 @@ export class StorageService {
   constructor(options: StorageServiceOptions) {
     this.dataDir = options.dataDir;
     this.usersDir = path.join(this.dataDir, 'users');
-    this.metadataDir = path.join(this.dataDir, 'metadata');
+    this.metadataDir = path.join(this.dataDir, 'global', 'metadata');
     this.config = options.config;
     
     this.data = {
@@ -43,20 +43,41 @@ export class StorageService {
    */
   private async init(): Promise<void> {
     try {
-      // 确保数据目录和子目录存在
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-        logger.info(`创建数据目录: ${this.dataDir}`);
+      // 确保全局数据目录和子目录存在
+      const globalDir = path.join(this.dataDir, 'global');
+      if (!fs.existsSync(globalDir)) {
+        fs.mkdirSync(globalDir, { recursive: true });
+        logger.info(`创建全局数据目录: ${globalDir}`);
       }
       
-      if (!fs.existsSync(this.usersDir)) {
-        fs.mkdirSync(this.usersDir, { recursive: true });
-        logger.info(`创建用户数据目录: ${this.usersDir}`);
-      }
-      
+      // 全局子目录
+      this.metadataDir = path.join(globalDir, 'metadata');
       if (!fs.existsSync(this.metadataDir)) {
         fs.mkdirSync(this.metadataDir, { recursive: true });
         logger.info(`创建元数据目录: ${this.metadataDir}`);
+      }
+      
+      // 确保用户目录存在
+      if (!fs.existsSync(this.usersDir)) {
+        fs.mkdirSync(this.usersDir, { recursive: true });
+        logger.info(`创建用户目录: ${this.usersDir}`);
+      }
+      
+      // 确保管理员目录结构存在
+      const adminDir = path.join(this.dataDir, 'admin');
+      if (!fs.existsSync(adminDir)) {
+        fs.mkdirSync(adminDir, { recursive: true });
+        logger.info(`创建管理员目录: ${adminDir}`);
+      }
+      
+      // 管理员子目录
+      const adminSubDirs = ['wallets', 'images', 'scheduler', 'content'];
+      for (const dir of adminSubDirs) {
+        const dirPath = path.join(adminDir, dir);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+          logger.info(`创建管理员子目录: ${dirPath}`);
+        }
       }
 
       // 尝试加载现有数据
@@ -114,7 +135,7 @@ export class StorageService {
 
       logger.info('存储服务初始化完成');
     } catch (error) {
-      logger.error('存储服务初始化失败', error);
+      logger.error('初始化存储服务失败', error);
     }
   }
 
@@ -175,28 +196,68 @@ export class StorageService {
     const users: Record<string, UserData> = {};
     
     try {
-      if (!fs.existsSync(this.usersDir)) {
-        return users;
+      // 1. 加载管理员用户数据
+      const adminDir = path.join(this.dataDir, 'admin');
+      const adminDataPath = path.join(adminDir, 'user.json');
+      
+      if (fs.existsSync(adminDataPath)) {
+        try {
+          const adminData = JSON.parse(fs.readFileSync(adminDataPath, 'utf8'));
+          users['admin'] = adminData;
+          logger.debug(`加载管理员用户数据`);
+        } catch (error) {
+          logger.error(`加载管理员用户数据失败`, error);
+        }
       }
       
-      const userFiles = fs.readdirSync(this.usersDir)
-        .filter(file => file.endsWith('.json'));
-      
-      for (const userFile of userFiles) {
-        try {
-          const filePath = path.join(this.usersDir, userFile);
-          const userData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          const username = userFile.replace('.json', '');
+      // 2. 加载普通用户数据
+      if (fs.existsSync(this.usersDir)) {
+        // 列出所有用户目录
+        const userDirs = fs.readdirSync(this.usersDir, { withFileTypes: true })
+          .filter(dirent => dirent.isDirectory())
+          .map(dirent => dirent.name);
           
-          // 确保用户数据有元数据字段（即使是空的）
-          if (!userData.metadata) {
-            userData.metadata = {};
+        // 遍历每个用户目录读取用户数据
+        for (const userId of userDirs) {
+          try {
+            const userDataPath = path.join(this.usersDir, userId, 'user.json');
+            
+            if (fs.existsSync(userDataPath)) {
+              const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+              users[userId] = userData;
+              logger.debug(`加载用户数据: ${userId}`);
+            }
+          } catch (error) {
+            logger.error(`加载用户 ${userId} 数据失败`, error);
           }
-          
-          users[username] = userData;
-          logger.debug(`加载用户数据: ${username}`);
-        } catch (error) {
-          logger.error(`加载用户 ${userFile} 失败`, error);
+        }
+      }
+      
+      // 3. 加载传统目录中的用户数据（兼容旧版路径）
+      const oldUsersDir = path.join(this.dataDir, 'legacy', 'users');
+      if (fs.existsSync(oldUsersDir)) {
+        const userFiles = fs.readdirSync(oldUsersDir)
+          .filter(file => file.endsWith('.json'));
+        
+        for (const userFile of userFiles) {
+          try {
+            const filePath = path.join(oldUsersDir, userFile);
+            const userData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            const username = userFile.replace('.json', '');
+            
+            // 确保用户数据有元数据字段（即使是空的）
+            if (!userData.metadata) {
+              userData.metadata = {};
+            }
+            
+            // 只在新目录中不存在时加载旧数据
+            if (!users[username]) {
+              users[username] = userData;
+              logger.debug(`从旧目录加载用户数据: ${username}`);
+            }
+          } catch (error) {
+            logger.error(`加载旧用户 ${userFile} 失败`, error);
+          }
         }
       }
       
@@ -239,9 +300,31 @@ export class StorageService {
       const userData = this.data.users[username];
       if (!userData) return;
       
+      let userDataPath: string;
+      let userDir: string;
+      
+      if (username === 'admin') {
+        // 管理员数据保存到admin目录
+        userDir = path.join(this.dataDir, 'admin');
+        userDataPath = path.join(userDir, 'user.json');
+      } else {
+        // 普通用户数据保存到各自的目录
+        userDir = path.join(this.usersDir, username);
+        userDataPath = path.join(userDir, 'user.json');
+      }
+      
       // 确保用户目录存在
-      if (!fs.existsSync(this.usersDir)) {
-        fs.mkdirSync(this.usersDir, { recursive: true });
+      if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+        
+        // 为新用户创建必要的子目录
+        const userSubDirs = ['wallets', 'images', 'content', 'scheduler'];
+        for (const dir of userSubDirs) {
+          const dirPath = path.join(userDir, dir);
+          if (!fs.existsSync(dirPath)) {
+            fs.mkdirSync(dirPath, { recursive: true });
+          }
+        }
       }
       
       // 创建用户数据的副本
@@ -259,8 +342,7 @@ export class StorageService {
       }
       
       // 保存用户数据
-      const userPath = path.join(this.usersDir, `${username}.json`);
-      fs.writeFileSync(userPath, JSON.stringify(userDataCopy, null, 2));
+      fs.writeFileSync(userDataPath, JSON.stringify(userDataCopy, null, 2));
       logger.debug(`用户数据保存成功: ${username}`);
     } catch (error) {
       logger.error(`保存用户数据失败: ${username}`, error);

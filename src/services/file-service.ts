@@ -21,8 +21,8 @@ export interface FileServiceOptions {
  */
 export class FileService {
   private baseDir: string;
-  private imagesDir: string;
-  private metadataDir: string;
+  private globalImagesDir: string;
+  private globalMetadataDir: string;
   private useMemoryCache: boolean;
   private imageCache: Map<string, Buffer>; // 图片内存缓存
   private metadataCache: Map<string, any>; // 元数据内存缓存
@@ -32,8 +32,12 @@ export class FileService {
    */
   constructor(options: FileServiceOptions) {
     this.baseDir = options.baseDir;
-    this.imagesDir = options.imagesDir || path.join(this.baseDir, 'images');
-    this.metadataDir = options.metadataDir || path.join(this.baseDir, 'metadata');
+    
+    // 全局共享目录
+    const globalDir = path.join(this.baseDir, 'global');
+    this.globalImagesDir = path.join(globalDir, 'images');
+    this.globalMetadataDir = path.join(globalDir, 'metadata');
+
     this.useMemoryCache = options.useMemoryCache || process.env.NODE_ENV === 'production';
     
     // 初始化缓存
@@ -51,51 +55,110 @@ export class FileService {
    */
   private initDirectories(): void {
     try {
-      if (!fs.existsSync(this.baseDir)) {
-        fs.mkdirSync(this.baseDir, { recursive: true });
-        logger.info(`创建基础目录: ${this.baseDir}`);
+      // 确保全局目录存在
+      const globalDir = path.join(this.baseDir, 'global');
+      if (!fs.existsSync(globalDir)) {
+        fs.mkdirSync(globalDir, { recursive: true });
+        logger.info(`创建全局目录: ${globalDir}`);
       }
 
-      if (!fs.existsSync(this.imagesDir)) {
-        fs.mkdirSync(this.imagesDir, { recursive: true });
-        logger.info(`创建图片目录: ${this.imagesDir}`);
+      // 确保全局图片目录存在
+      if (!fs.existsSync(this.globalImagesDir)) {
+        fs.mkdirSync(this.globalImagesDir, { recursive: true });
+        logger.info(`创建全局图片目录: ${this.globalImagesDir}`);
       }
 
-      if (!fs.existsSync(this.metadataDir)) {
-        fs.mkdirSync(this.metadataDir, { recursive: true });
-        logger.info(`创建元数据目录: ${this.metadataDir}`);
+      // 确保全局元数据目录存在
+      if (!fs.existsSync(this.globalMetadataDir)) {
+        fs.mkdirSync(this.globalMetadataDir, { recursive: true });
+        logger.info(`创建全局元数据目录: ${this.globalMetadataDir}`);
+      }
+      
+      // 确保管理员目录存在
+      const adminDir = path.join(this.baseDir, 'admin');
+      if (!fs.existsSync(adminDir)) {
+        fs.mkdirSync(adminDir, { recursive: true });
+        logger.info(`创建管理员目录: ${adminDir}`);
+      }
+      
+      // 确保管理员图片目录存在
+      const adminImagesDir = path.join(adminDir, 'images');
+      if (!fs.existsSync(adminImagesDir)) {
+        fs.mkdirSync(adminImagesDir, { recursive: true });
+        logger.info(`创建管理员图片目录: ${adminImagesDir}`);
+      }
+      
+      // 确保用户基础目录存在
+      const usersDir = path.join(this.baseDir, 'users');
+      if (!fs.existsSync(usersDir)) {
+        fs.mkdirSync(usersDir, { recursive: true });
+        logger.info(`创建用户基础目录: ${usersDir}`);
       }
     } catch (error) {
       logger.error('初始化目录失败', error);
       throw error;
     }
   }
-
+  
   /**
-   * 获取相对于基础目录的路径
-   * @param absolutePath 绝对路径
-   * @returns 相对路径
+   * 获取用户特定的图片目录
+   * @param userId 用户ID
    */
-  public getRelativePath(absolutePath: string): string {
-    return path.relative(this.baseDir, absolutePath);
+  public getUserImagesDir(userId: string): string {
+    if (userId === 'admin') {
+      return path.join(this.baseDir, 'admin', 'images');
+    } else {
+      const userDir = path.join(this.baseDir, 'users', userId);
+      const imagesDir = path.join(userDir, 'images');
+      
+      // 确保目录存在
+      if (!fs.existsSync(imagesDir)) {
+        fs.mkdirSync(imagesDir, { recursive: true });
+      }
+      
+      return imagesDir;
+    }
+  }
+  
+  /**
+   * 获取用户特定的元数据目录
+   * @param userId 用户ID
+   */
+  public getUserMetadataDir(userId: string): string {
+    if (userId === 'admin') {
+      return path.join(this.baseDir, 'admin', 'metadata');
+    } else {
+      const userDir = path.join(this.baseDir, 'users', userId);
+      const metadataDir = path.join(userDir, 'metadata');
+      
+      // 确保目录存在
+      if (!fs.existsSync(metadataDir)) {
+        fs.mkdirSync(metadataDir, { recursive: true });
+      }
+      
+      return metadataDir;
+    }
   }
 
   /**
-   * 根据相对路径获取绝对路径
-   * @param relativePath 相对路径
-   * @returns 绝对路径
+   * 获取相对路径
    */
-  public getAbsolutePath(relativePath: string): string {
-    return path.resolve(this.baseDir, relativePath);
+  private getRelativePath(absolutePath: string): string {
+    return path.relative(this.baseDir, absolutePath);
   }
 
   /**
    * 保存图片
    * @param imageBuffer 图片数据
    * @param originalName 原始文件名
+   * @param userId 用户ID，用于确定存储位置
    * @returns 保存的图片信息
    */
-  public async saveImage(imageBuffer: Buffer, originalName: string): Promise<{
+  public async saveImage(
+    imageBuffer: Buffer, 
+    originalName: string, 
+    userId: string = 'admin'
+  ): Promise<{
     cid: string;
     path: string;
     relativePath: string;
@@ -115,17 +178,20 @@ export class FileService {
       // 2. 获取文件扩展名
       const extension = path.extname(originalName).slice(1) || 'png';
       
-      // 3. 构建存储路径 - 直接存储在images目录下
-      const filePath = path.join(this.imagesDir, `${cid}.${extension}`);
+      // 3. 获取用户的图片目录
+      const userImagesDir = this.getUserImagesDir(userId);
+      
+      // 4. 构建存储路径 - 存储在用户特定的图片目录下
+      const filePath = path.join(userImagesDir, `${cid}.${extension}`);
       const relativePath = this.getRelativePath(filePath);
       
-      // 4. 保存到内存缓存
+      // 5. 保存到内存缓存
       if (this.useMemoryCache) {
         this.imageCache.set(cid, imageBuffer);
         logger.debug(`图片已缓存到内存: ${cid}`);
       }
       
-      // 5. 尝试写入文件系统（即使使用内存缓存也尝试写入，作为备份）
+      // 6. 尝试写入文件系统（即使使用内存缓存也尝试写入，作为备份）
       try {
         // 检查文件是否已存在
         if (fs.existsSync(filePath)) {
@@ -162,9 +228,10 @@ export class FileService {
    * 根据CID获取图片
    * @param cid 图片CID
    * @param extension 文件扩展名
+   * @param userId 用户ID，用于定位图片
    * @returns 图片数据
    */
-  public getImageByCID(cid: string, extension: string = 'png'): Buffer {
+  public getImageByCID(cid: string, extension: string = 'png', userId?: string): Buffer {
     try {
       // 1. 先从内存缓存中获取
       if (this.useMemoryCache && this.imageCache.has(cid)) {
@@ -173,13 +240,57 @@ export class FileService {
       }
       
       // 2. 从文件系统获取
-      const filePath = path.join(this.imagesDir, `${cid}.${extension}`);
+      // 首先尝试在用户特定目录查找（如果提供了userId）
+      let imageBuffer: Buffer | null = null;
       
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`图片不存在: ${filePath}`);
+      if (userId) {
+        const userImagesDir = this.getUserImagesDir(userId);
+        const userFilePath = path.join(userImagesDir, `${cid}.${extension}`);
+        
+        if (fs.existsSync(userFilePath)) {
+          imageBuffer = fs.readFileSync(userFilePath);
+          logger.debug(`从用户图片目录获取图片: ${userFilePath}`);
+        }
       }
       
-      const imageBuffer = fs.readFileSync(filePath);
+      // 如果没有在用户目录找到，尝试在全局目录查找
+      if (!imageBuffer) {
+        const globalFilePath = path.join(this.globalImagesDir, `${cid}.${extension}`);
+        
+        if (fs.existsSync(globalFilePath)) {
+          imageBuffer = fs.readFileSync(globalFilePath);
+          logger.debug(`从全局图片目录获取图片: ${globalFilePath}`);
+        }
+      }
+      
+      // 如果仍未找到，尝试在管理员目录查找
+      if (!imageBuffer) {
+        const adminFilePath = path.join(this.baseDir, 'admin', 'images', `${cid}.${extension}`);
+        
+        if (fs.existsSync(adminFilePath)) {
+          imageBuffer = fs.readFileSync(adminFilePath);
+          logger.debug(`从管理员图片目录获取图片: ${adminFilePath}`);
+        }
+      }
+      
+      // 如果仍未找到，尝试在旧的图片目录结构中查找（兼容性）
+      if (!imageBuffer) {
+        // 旧的图片目录结构
+        const oldImagesDir = path.join(this.baseDir, 'images');
+        if (fs.existsSync(oldImagesDir)) {
+          const oldFilePath = path.join(oldImagesDir, `${cid}.${extension}`);
+          
+          if (fs.existsSync(oldFilePath)) {
+            imageBuffer = fs.readFileSync(oldFilePath);
+            logger.debug(`从旧图片目录获取图片: ${oldFilePath}`);
+          }
+        }
+      }
+      
+      // 如果仍未找到图片，抛出错误
+      if (!imageBuffer) {
+        throw new Error(`图片不存在: ${cid}.${extension}`);
+      }
       
       // 3. 读取成功后添加到内存缓存
       if (this.useMemoryCache) {
@@ -215,7 +326,7 @@ export class FileService {
       }
       
       // 构建存储路径 - 直接存储在metadata目录下
-      const filePath = path.join(this.metadataDir, `${cid}.json`);
+      const filePath = path.join(this.globalMetadataDir, `${cid}.json`);
       const relativePath = this.getRelativePath(filePath);
       
       // 尝试写入文件系统
@@ -262,7 +373,7 @@ export class FileService {
       }
       
       // 2. 从文件系统获取
-      const filePath = path.join(this.metadataDir, `${cid}.json`);
+      const filePath = path.join(this.globalMetadataDir, `${cid}.json`);
       
       if (!fs.existsSync(filePath)) {
         throw new Error(`元数据不存在: ${filePath}`);

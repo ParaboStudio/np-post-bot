@@ -44,9 +44,9 @@ try {
 
 // 使用来自defaultConfig的配置
 const DATA_DIR = defaultConfig.DATA_DIR;
-const SCHEDULER_DIR = path.join(DATA_DIR, 'scheduler'); // 专门的调度器子目录
-const TASKS_CONFIG_PATH = path.join(SCHEDULER_DIR, 'schedule-tasks.json');
-const HISTORY_PATH = path.join(SCHEDULER_DIR, 'schedule-history.json');
+const SCHEDULER_DIR = path.join(DATA_DIR, 'admin', 'scheduler'); // 新的调度器目录
+const TASKS_CONFIG_PATH = path.join(SCHEDULER_DIR, 'tasks.json');
+const HISTORY_PATH = path.join(SCHEDULER_DIR, 'history.json');
 
 // 确保必要的目录存在
 async function ensureDirectories() {

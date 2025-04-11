@@ -5,6 +5,7 @@
 import { CommandModule, CommandHandler, CommandResult } from '../types';
 import { CommandRouter } from './command-router';
 import fs from 'fs/promises';
+import { existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import logger from '../utils/logger.js';
 import { setTimeout } from 'timers/promises';
@@ -39,11 +40,11 @@ export class SchedulerCommands implements CommandModule {
    * 构造函数
    */
   constructor() {
-    // 路径设置
+    // 路径设置 - 使用admin目录下的scheduler子目录
     this.configDir = path.join(process.cwd(), 'config');
-    this.dataDir = path.join(process.cwd(), 'data');
-    this.tasksConfigPath = path.join(this.configDir, 'schedule-tasks.json');
-    this.historyPath = path.join(this.dataDir, 'schedule-history.json');
+    this.dataDir = path.join(process.cwd(), 'tmp');
+    this.tasksConfigPath = path.join(this.dataDir, 'admin', 'scheduler', 'tasks.json');
+    this.historyPath = path.join(this.dataDir, 'admin', 'scheduler', 'history.json');
 
     // 确保必要目录存在
     this.ensureDirectories();
@@ -54,8 +55,17 @@ export class SchedulerCommands implements CommandModule {
    */
   private async ensureDirectories() {
     try {
-      await fs.mkdir(this.configDir, { recursive: true });
-      await fs.mkdir(this.dataDir, { recursive: true });
+      // 确保管理员目录存在
+      const adminDir = path.join(this.dataDir, 'admin');
+      if (!existsSync(adminDir)) {
+        await fs.mkdir(adminDir, { recursive: true });
+      }
+      
+      // 确保调度器目录存在
+      const schedulerDir = path.join(adminDir, 'scheduler');
+      if (!existsSync(schedulerDir)) {
+        await fs.mkdir(schedulerDir, { recursive: true });
+      }
     } catch (error) {
       logger.error('创建目录失败', error);
     }
