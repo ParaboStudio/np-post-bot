@@ -420,30 +420,6 @@ const commands: Record<string, CommandDefinition> = {
   },
   
   // 链操作命令
-  'chain.switch': {
-    platforms: {
-      telegram: { command: 'chain_switch' },
-      cli: { command: 'chain switch' },
-      api: { endpoint: '/api/chain/switch' }
-    },
-    handler: 'ChainCommands.handleSwitch',
-    description: '切换当前链',
-    params: [
-      { name: 'chain', description: '链名称', required: true }
-    ],
-    category: '链操作'
-  },
-  'chain.list': {
-    platforms: {
-      telegram: { command: 'chain_list' },
-      cli: { command: 'chain list' },
-      api: { endpoint: '/api/chain/list' }
-    },
-    handler: 'ChainCommands.handleList',
-    description: '列出支持的链',
-    params: [],
-    category: '链操作'
-  },
   'chain.info': {
     platforms: {
       telegram: { command: 'chain_info' },

@@ -83,10 +83,9 @@ export class ChainService {
       const provider = this.blockchain.getProvider(this.chainConfig.rpcUrl);
       
       // 获取区块链信息
-      const [blockNumber, network, gasPrice] = await Promise.all([
+      const [blockNumber, network] = await Promise.all([
         provider.getBlockNumber(),
         provider.getNetwork(),
-        provider.getGasPrice()
       ]);
       
       return {
@@ -96,7 +95,6 @@ export class ChainService {
         blockNumber,
         networkId: network.chainId,
         networkName: network.name,
-        gasPrice: ethers.utils.formatUnits(gasPrice, 'gwei') + ' gwei',
         status: 'connected'
       };
     } catch (error) {

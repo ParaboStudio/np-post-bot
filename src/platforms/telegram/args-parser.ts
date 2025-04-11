@@ -54,8 +54,6 @@ export class TelegramArgsParser {
     this.commandHandlers['fund.balance'] = this.handleWalletIndexParams; // 复用钱包索引参数
 
     // 链操作相关命令
-    this.commandHandlers['chain.switch'] = this.handleChainSwitchParams;
-    this.commandHandlers['chain.list'] = this.handleEmptyParams;
     this.commandHandlers['chain.info'] = this.handleEmptyParams;
 
     // 用户相关命令
@@ -348,17 +346,6 @@ export class TelegramArgsParser {
           parsedArgs.walletList = [walletListStr];
         }
       }
-    }
-
-    return parsedArgs;
-  };
-
-  // 处理链切换参数
-  private handleChainSwitchParams = (args: string[]): Record<string, any> => {
-    const parsedArgs: Record<string, any> = {};
-
-    if (args.length > 0) {
-      parsedArgs.chain = args[0].toLowerCase();
     }
 
     return parsedArgs;
