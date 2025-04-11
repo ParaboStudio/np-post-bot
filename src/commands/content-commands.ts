@@ -19,6 +19,7 @@ export class ContentCommands implements CommandModule {
     router.registerHandler('content.add', this.addContent);
     router.registerHandler('content.list', this.listContents);
     router.registerHandler('content.delete', this.deleteContent);
+    router.registerHandler('content.publish', this.publishContent);
   }
 
   /**
@@ -150,6 +151,94 @@ export class ContentCommands implements CommandModule {
       return {
         success: false,
         message: `删除内容失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 发布内容
+   * 支持从缓存列表中选择内容发布，如果缓存中没有可用内容则生成新内容
+   */
+  private publishContent: CommandHandler = async ({ services, args, context }) => {
+    try {
+      if (!args.community) {
+        return {
+          success: false,
+          message: '缺少社区参数'
+        };
+      }
+      
+      const ensLabel = args.community;
+      const useCache = args.useCache === true;
+      
+      logger.info(`发布内容到社区 ${ensLabel}，使用缓存: ${useCache ? '是' : '否'}`);
+      
+      // 获取服务
+      const postingService = services.posting;
+      const storageService = services.storage;
+      
+      // 如果使用缓存，先尝试从缓存获取未发布的内容
+      if (useCache) {
+        // 获取该社区的所有内容
+        const contents = storageService.getContents(context.userId, ensLabel);
+        
+        // 筛选出状态为'draft'的内容
+        const draftContents = contents.filter(content => 
+          content.status === 'draft'
+        );
+        
+        if (draftContents.length > 0) {
+          // 按创建时间排序，优先使用最早创建的
+          draftContents.sort((a, b) => 
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          
+          const contentToPublish = draftContents[0];
+          logger.info(`从缓存中找到可用内容: ${contentToPublish.id}`);
+          
+          // 使用现有内容发布
+          const result = await postingService.publishContent(
+            ensLabel,
+            contentToPublish.id,
+            args.walletIndex,
+            context.userId
+          );
+          
+          return {
+            success: true,
+            message: `使用缓存内容发布成功，内容ID: ${contentToPublish.id}`,
+            data: {
+              ...result,
+              contentId: contentToPublish.id,
+              fromCache: true
+            }
+          };
+        } else {
+          logger.info(`缓存中没有找到可用内容，将生成新内容`);
+        }
+      }
+      
+      // 没有缓存或缓存中没有可用内容，生成新内容并发布
+      const result = await postingService.quickPublish(
+        ensLabel,
+        '', // 不指定文本，由AI生成
+        args.walletIndex,
+        context.userId
+      );
+      
+      return {
+        success: true,
+        message: '内容生成并发布成功',
+        data: {
+          ...result,
+          fromCache: false
+        }
+      };
+    } catch (error) {
+      logger.error('内容发布失败', error);
+      return {
+        success: false,
+        message: `内容发布失败: ${(error as Error).message || String(error)}`
       };
     }
   };

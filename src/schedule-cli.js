@@ -4,10 +4,10 @@
  * CLI工具 - 用于执行发布操作
  * 主要用于GitHub Actions中的定时任务执行
  */
-const { program } = require('commander');
-const { ServiceContainer } = require('./services/service-container');
-const { CommandRouter } = require('./commands/command-router');
-const logger = require('./utils/logger').default;
+import { program } from 'commander';
+import { ServiceContainer } from './services/service-container.js';
+import { CommandRouter } from './commands/command-router.js';
+import logger from './utils/logger.js';
 
 // 创建服务容器和命令路由器
 const services = new ServiceContainer();
@@ -39,6 +39,7 @@ program
   .option('publish', '发布内容')
   .option('--community <community>', '目标社区')
   .option('--contentType <type>', '内容类型', 'default')
+  .option('--useCache', '是否使用缓存内容列表', false)
   .action(async (options) => {
     // 初始化服务
     const initialized = await initServices();
@@ -53,12 +54,13 @@ program
           process.exit(1);
         }
         
-        logger.info(`正在发布内容到社区 ${options.community}，类型: ${options.contentType}`);
+        logger.info(`正在发布内容到社区 ${options.community}，类型: ${options.contentType}，使用缓存: ${options.useCache ? '是' : '否'}`);
         
         // 执行发布命令
         const result = await commandRouter.route('content.publish', {
           community: options.community,
-          contentType: options.contentType
+          contentType: options.contentType,
+          useCache: options.useCache
         }, {
           userId: 'scheduler',
           role: 'admin',

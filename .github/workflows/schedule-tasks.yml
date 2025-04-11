@@ -44,6 +44,9 @@ jobs:
           
       - name: Install dependencies
         run: pnpm i
+        
+      - name: 构建项目
+        run: pnpm run build
       
       - name: 执行调度任务
         env:
@@ -51,4 +54,4 @@ jobs:
           # TG_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           # ADMIN_CHAT_ID: ${{ secrets.ADMIN_CHAT_ID }}
           MANUAL_TASK_ID: ${{ github.event.inputs.task_id }}
-        run: node .github/scripts/schedule-runner.js
+        run: node --experimental-modules .github/scripts/schedule-runner.js

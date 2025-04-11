@@ -1,10 +1,22 @@
+#!/usr/bin/env node
+// @ts-check
+// 声明为ES模块
 /**
  * 调度任务执行器
  * 用于GitHub Actions中执行定时发布任务
  */
-const fs = require('fs').promises;
-const path = require('path');
-const { execSync } = require('child_process');
+import { promises as fs } from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+// 获取当前文件的目录
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 创建require函数用于导入JSON和兼容性
+const require = createRequire(import.meta.url);
 
 // 导入默认配置
 // 注意：由于是在GitHub Actions中运行，我们需要直接访问编译后的JS文件
@@ -12,7 +24,8 @@ const defaultConfigPath = path.join(process.cwd(), 'dist', 'config', 'default.js
 let defaultConfig;
 
 try {
-  const configModule = require(defaultConfigPath);
+  // 使用动态导入替代require
+  const configModule = await import('file://' + defaultConfigPath);
   defaultConfig = configModule.default || configModule;
   console.log('成功加载默认配置');
 } catch (error) {
@@ -146,9 +159,9 @@ async function executeTask(task) {
       }
       
       // 构建发布命令
-      // 注意：这里假设您有一个Node.js脚本可以执行发布操作
-      // 如果没有，需要根据实际情况调整
-      const publishCommand = `node dist/schedule-cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}"`;
+      // 注意：在ES模块环境中执行
+      const useCache = task.useCache === true ? '--useCache' : '';
+      const publishCommand = `node --experimental-modules dist/schedule-cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}" ${useCache}`;
       
       console.log(`执行命令: ${publishCommand}`);
       
@@ -277,8 +290,9 @@ async function main() {
     
   } catch (error) {
     console.error('执行调度脚本时出错:', error);
+    process.exit(1);
   }
 }
 
 // 执行主函数
-main().catch(console.error);
+main();

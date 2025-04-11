@@ -1,8 +1,8 @@
 /**
  * 命令路由器 - 将命令分发给相应的处理器
  */
-import { ServiceContainer } from '../services';
-import { CommandResult, CommandContext, CommandHandler } from '../types';
+import { ServiceContainer } from '../services/index.js';
+import { CommandResult, CommandContext, CommandHandler } from '../types/index.js';
 import logger from '../utils/logger.js';
 
 /**

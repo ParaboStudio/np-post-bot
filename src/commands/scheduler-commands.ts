@@ -17,6 +17,7 @@ interface ScheduleTask {
   contentCount: number;
   interval: number;
   contentType?: string;
+  useCache?: boolean;
   enabled: boolean;
   createdBy: string;
   createdAt: string;
@@ -131,6 +132,7 @@ export class SchedulerCommands implements CommandModule {
       const community = args.community;
       const contentCount = parseInt(args.count);
       const interval = parseInt(args.interval);
+      const useCache = args.useCache === 'true' || args.useCache === true;
 
       // 验证时间格式
       if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(time)) {
@@ -172,6 +174,7 @@ export class SchedulerCommands implements CommandModule {
         contentCount,
         interval,
         contentType: args.type || 'default',
+        useCache,
         enabled: true,
         createdBy: context?.userId || 'unknown',
         createdAt: new Date().toISOString()
@@ -189,7 +192,7 @@ export class SchedulerCommands implements CommandModule {
       if (success) {
         return {
           success: true,
-          message: `已添加定时任务！\n\nID: ${taskId}\n时间: ${time}\n社区: ${community}\n发布数量: ${contentCount}\n间隔: ${interval}分钟`,
+          message: `已添加定时任务！\n\nID: ${taskId}\n时间: ${time}\n社区: ${community}\n发布数量: ${contentCount}\n间隔: ${interval}分钟\n使用缓存: ${useCache ? '是' : '否'}`,
           data: newTask
         };
       } else {
@@ -227,10 +230,12 @@ export class SchedulerCommands implements CommandModule {
 
       for (const task of tasks) {
         const status = task.enabled ? '✅ 已启用' : '❌ 已禁用';
+        const useCache = task.useCache ? '✅ 是' : '❌ 否';
         message += `🔸 ID: ${task.id}\n`;
         message += `⏰ 时间: ${task.time}\n`;
         message += `🌐 社区: ${task.community}\n`;
         message += `📊 发布: ${task.contentCount}条，间隔${task.interval}分钟\n`;
+        message += `🔄 使用缓存: ${useCache}\n`;
         message += `📌 状态: ${status}\n`;
         message += `👤 创建者: ${task.createdBy}\n\n`;
       }
@@ -653,88 +658,27 @@ export class SchedulerCommands implements CommandModule {
    */
   private updateSchedulerConfig: CommandHandler = async ({ services, args }) => {
     try {
-      const scheduler = services.scheduler;
-
-      const newConfig: any = {};
-
-      // 处理间隔设置
-      if (args.interval !== undefined) {
-        const interval = parseInt(args.interval);
-        if (isNaN(interval) || interval < 1) {
-          return {
-            success: false,
-            message: '间隔必须是大于0的整数'
-          };
-        }
-        newConfig.interval = interval;
-      }
-
-      // 处理社区列表
-      if (args.ensLabels !== undefined) {
-        let ensLabels = args.ensLabels;
-
-        // 如果是字符串，尝试解析为数组
-        if (typeof ensLabels === 'string') {
-          try {
-            if (ensLabels.startsWith('[') && ensLabels.endsWith(']')) {
-              ensLabels = JSON.parse(ensLabels);
-            } else {
-              // 如果是逗号分隔的字符串
-              ensLabels = ensLabels.split(',').map((label: string) => label.trim());
-            }
-          } catch (e) {
-            return {
-              success: false,
-              message: '无法解析社区列表，请使用逗号分隔或JSON数组'
-            };
-          }
-        }
-
-        // 确保是数组类型
-        if (!Array.isArray(ensLabels)) {
-          return {
-            success: false,
-            message: '社区列表必须是数组'
-          };
-        }
-
-        newConfig.ensLabels = ensLabels;
-      }
-
-      // 处理用户ID
-      if (args.userId !== undefined) {
-        newConfig.userId = args.userId;
-      }
-
-      // 处理钱包索引
-      if (args.walletIndex !== undefined) {
-        const walletIndex = parseInt(args.walletIndex);
-        if (isNaN(walletIndex) || walletIndex < 0) {
-          return {
-            success: false,
-            message: '钱包索引必须是大于等于0的整数'
-          };
-        }
-        newConfig.walletIndex = walletIndex;
-      }
-
-      // 如果没有任何配置需要更新
-      if (Object.keys(newConfig).length === 0) {
+      const schedulerService = services.scheduler;
+      
+      if (!schedulerService) {
         return {
           success: false,
-          message: '未提供任何配置更新'
+          message: '调度器服务未初始化'
         };
       }
 
-      // 更新配置
-      const result = await scheduler.updateConfig(newConfig);
+      // 解析配置
+      const config = {
+        ...args
+      };
 
+      // 更新配置
+      const result = await schedulerService.updateConfig(config);
+      
       if (result) {
-        const updatedConfig = scheduler.getConfig();
         return {
           success: true,
-          message: '调度器配置已更新',
-          data: updatedConfig
+          message: '调度器配置已更新'
         };
       } else {
         return {
