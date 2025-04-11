@@ -237,6 +237,72 @@ const commands: Record<string, CommandDefinition> = {
       { name: 'wallet', description: '钱包索引', required: false }
     ],
     category: '发布'
+  },
+  
+  // 钱包相关命令
+  'wallet.add': {
+    platforms: {
+      telegram: { command: 'wallet_add' },
+      cli: { command: 'wallet add' },
+      api: { endpoint: '/api/wallet/add' }
+    },
+    handler: 'WalletCommands.addWallet',
+    description: '添加钱包',
+    params: [
+      { name: 'privateKey', description: '私钥', required: true }
+    ],
+    category: '钱包'
+  },
+  'wallet.generate': {
+    platforms: {
+      telegram: { command: 'wallet_generate' },
+      cli: { command: 'wallet generate' },
+      api: { endpoint: '/api/wallet/generate' }
+    },
+    handler: 'WalletCommands.generateWallets',
+    description: '生成HD钱包',
+    params: [
+      { name: 'count', description: '钱包数量', required: false },
+      { name: 'mnemonic', description: '助记词', required: false }
+    ],
+    category: '钱包'
+  },
+  'wallet.list': {
+    platforms: {
+      telegram: { command: 'wallet_list' },
+      cli: { command: 'wallet list' },
+      api: { endpoint: '/api/wallet/list' }
+    },
+    handler: 'WalletCommands.listWallets',
+    description: '列出钱包',
+    params: [],
+    category: '钱包'
+  },
+  'wallet.delete': {
+    platforms: {
+      telegram: { command: 'wallet_delete' },
+      cli: { command: 'wallet delete' },
+      api: { endpoint: '/api/wallet/delete' }
+    },
+    handler: 'WalletCommands.deleteWallet',
+    description: '删除钱包',
+    params: [
+      { name: 'index', description: '钱包索引', required: true }
+    ],
+    category: '钱包'
+  },
+  'wallet.switch': {
+    platforms: {
+      telegram: { command: 'wallet_switch' },
+      cli: { command: 'wallet switch' },
+      api: { endpoint: '/api/wallet/switch' }
+    },
+    handler: 'WalletCommands.switchWallet',
+    description: '切换当前钱包',
+    params: [
+      { name: 'index', description: '钱包索引', required: true }
+    ],
+    category: '钱包'
   }
 };
 

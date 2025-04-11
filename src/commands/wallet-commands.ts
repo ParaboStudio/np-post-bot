@@ -20,6 +20,7 @@ export class WalletCommands implements CommandModule {
     router.registerHandler('wallet.list', this.listWallets);
     router.registerHandler('wallet.delete', this.deleteWallet);
     router.registerHandler('wallet.switch', this.switchWallet);
+    router.registerHandler('wallet.generate', this.generateWallets);
   }
 
   /**
@@ -158,6 +159,60 @@ export class WalletCommands implements CommandModule {
       return {
         success: false,
         message: `切换钱包失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 生成HD钱包
+   */
+  private generateWallets: CommandHandler = async ({ services, args }) => {
+    try {
+      // 获取参数
+      const count = args.count ? parseInt(args.count) : 20;
+      const mnemonic = args.mnemonic;
+      
+      // 参数验证
+      if (count <= 0 || count > 100) {
+        return {
+          success: false,
+          message: '无效的钱包数量，请指定1-100之间的数值'
+        };
+      }
+      
+      // 如果提供了助记词，验证其有效性
+      if (mnemonic) {
+        try {
+          ethers.utils.HDNode.fromMnemonic(mnemonic);
+        } catch (e) {
+          return {
+            success: false,
+            message: '无效的助记词'
+          };
+        }
+      }
+      
+      // 调用钱包服务生成钱包
+      const result = await services.wallet.generateHDWallets(count, mnemonic);
+      
+      return {
+        success: true,
+        message: `成功生成${result.wallets.length}个钱包`,
+        data: {
+          mnemonic: result.mnemonic,
+          wallets: result.wallets.map(w => ({
+            id: w.id,
+            address: w.address,
+            createdAt: w.createdAt
+          })),
+          warning: '请务必保存助记词，这是恢复钱包的唯一方式！'
+        }
+      };
+    } catch (error) {
+      logger.error('生成HD钱包失败', error);
+      return {
+        success: false,
+        message: `生成HD钱包失败: ${(error as Error).message || String(error)}`
       };
     }
   };

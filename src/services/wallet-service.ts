@@ -18,6 +18,14 @@ interface WalletServiceOptions {
 }
 
 /**
+ * 钱包派生结果
+ */
+export interface HDWalletGenerationResult {
+  mnemonic: string;
+  wallets: WalletRecord[];
+}
+
+/**
  * 钱包服务
  */
 export class WalletService {
@@ -105,6 +113,69 @@ export class WalletService {
       return wallet;
     } catch (error) {
       logger.error(`添加钱包失败`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 生成HD钱包 - 从助记词派生出多个钱包
+   * @param count 要生成的钱包数量，默认为20
+   * @param mnemonic 可选的助记词，如果不提供则随机生成
+   * @param username 用户名，默认使用当前用户
+   * @returns 返回助记词和派生的钱包列表
+   */
+  public async generateHDWallets(count: number = 20, mnemonic?: string, username?: string): Promise<HDWalletGenerationResult> {
+    const user = username || this.user.getCurrentUser();
+    
+    try {
+      // 生成随机助记词，或使用提供的助记词
+      let generatedMnemonic: string;
+      let hdNode: ethers.utils.HDNode;
+      
+      if (mnemonic) {
+        // 使用提供的助记词
+        hdNode = ethers.utils.HDNode.fromMnemonic(mnemonic);
+        generatedMnemonic = mnemonic;
+      } else {
+        // 生成随机助记词
+        generatedMnemonic = ethers.utils.entropyToMnemonic(ethers.utils.randomBytes(16));
+        hdNode = ethers.utils.HDNode.fromMnemonic(generatedMnemonic);
+      }
+      
+      // 派生路径 m/44'/60'/0'/0/
+      const derivationPath = "m/44'/60'/0'/0/";
+      
+      // 存储已添加的钱包
+      const addedWallets: WalletRecord[] = [];
+      
+      // 从HD节点派生指定数量的钱包
+      for (let i = 0; i < count; i++) {
+        // 派生子钱包
+        const childNode = hdNode.derivePath(`${derivationPath}${i}`);
+        const privateKey = childNode.privateKey;
+        const address = childNode.address;
+        
+        // 检查钱包是否已存在
+        const wallets = this.storage.getWallets(user);
+        const existingWallet = wallets.find(w => w.address.toLowerCase() === address.toLowerCase());
+        
+        if (existingWallet) {
+          logger.info(`钱包已存在，跳过添加: ${address}`);
+          continue;
+        }
+        
+        // 添加钱包
+        const wallet = await this.storage.addWallet(user, privateKey, address);
+        addedWallets.push(wallet);
+        logger.info(`为用户 ${user} 添加派生钱包成功: ${address}`);
+      }
+      
+      return {
+        mnemonic: generatedMnemonic,
+        wallets: addedWallets
+      };
+    } catch (error) {
+      logger.error(`生成HD钱包失败`, error);
       throw error;
     }
   }
