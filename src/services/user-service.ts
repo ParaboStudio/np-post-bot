@@ -4,6 +4,7 @@
 import { StorageService } from './storage-service.js';
 import { UserData } from '../types/index.js';
 import logger from '../utils/logger.js';
+import { isAdmin as checkAdminWhitelist } from '../utils/admin-check.js';
 
 /**
  * 用户服务配置
@@ -87,6 +88,12 @@ export class UserService {
    * 检查用户是否是管理员
    */
   public isAdmin(username: string = this.currentUser): boolean {
+    // 首先检查白名单
+    if (checkAdminWhitelist(username)) {
+      return true;
+    }
+    
+    // 然后检查用户数据中的角色
     const userData = this.storage.getUserData(username);
     return userData?.role === 'admin';
   }

@@ -5,29 +5,18 @@
 import { logger } from '../../utils/logger.js';
 import { Context } from 'telegraf';
 import { CommandContext } from '../../types/commands.js';
+import { isTelegramAdmin, getTelegramUserId } from '../../utils/admin-check.js';
 
 /**
  * Telegram授权模块
  */
 export class TelegramAuthorization {
-  // Telegram用户ID白名单 - 将Telegram用户ID映射到系统用户
-  private authorizedUsers: Record<string, string> = {
-    // 您的Telegram ID映射到admin用户
-    '1424003064': 'admin',
-    '6157223080': 'admin',
-    '471086510': 'admin',
-    '1861275146': 'admin',
-    // 可以添加更多授权用户
-    // '其他TelegramID': 'admin',
-    // '另一个TelegramID': '其他系统用户名'
-  };
-
   /**
    * 检查用户是否在授权白名单中
    */
   public checkAuthorization(telegramUserId: string): boolean {
-    // 检查用户ID是否在白名单中
-    const isAuthorized = telegramUserId in this.authorizedUsers;
+    // 使用admin-check工具检查Telegram ID
+    const isAuthorized = isTelegramAdmin(telegramUserId);
     
     if (!isAuthorized) {
       logger.warn(`未授权的用户尝试访问: Telegram ID ${telegramUserId}`);
@@ -40,8 +29,8 @@ export class TelegramAuthorization {
    * 获取映射的系统用户ID
    */
   public getMappedUserId(telegramUserId: string): string {
-    // 如果用户在白名单中，返回映射的系统用户ID，否则返回'admin'作为默认值
-    return this.authorizedUsers[telegramUserId] || 'admin';
+    // 使用admin-check工具获取用户ID
+    return getTelegramUserId(telegramUserId);
   }
 
   /**
@@ -50,7 +39,7 @@ export class TelegramAuthorization {
   public createUserContext(ctx: Context): CommandContext & Record<string, any> {
     const telegramUserId = ctx.from?.id.toString() || '';
 
-    // 从白名单映射中获取系统用户ID
+    // 从admin-check获取系统用户ID
     const systemUserId = this.getMappedUserId(telegramUserId);
 
     const username = [

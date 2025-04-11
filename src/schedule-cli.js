@@ -80,8 +80,7 @@ program
           randomWallet: options.randomWallet,
           walletIndex: options.walletIndex !== undefined ? parseInt(options.walletIndex) : undefined
         }, {
-          userId: 'scheduler',
-          role: 'admin',
+          userId: 'admin',
           username: 'Scheduler'
         });
         
@@ -130,8 +129,7 @@ program
         const result = await commandRouter.route('scheduler.execute_task', {
           id: options.taskId
         }, {
-          userId: 'scheduler',
-          role: 'admin',
+          userId: 'admin',
           username: 'Scheduler'
         });
         
