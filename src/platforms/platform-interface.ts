@@ -41,7 +41,13 @@ export async function executeCommand(
   context: any = {}
 ): Promise<PlatformCommandResult> {
   try {
-    return await commandRouter.route(command, args, context);
+    const result = await commandRouter.route(command, args, context);
+    // 确保message属性一定有值
+    return {
+      success: result.success,
+      message: result.message || '操作成功',
+      data: result.data
+    };
   } catch (error: unknown) {
     return {
       success: false,

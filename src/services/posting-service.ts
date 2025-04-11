@@ -15,6 +15,7 @@ import { FileService } from './file-service.js';
 import { ContentRecord, Config } from '../types/index.js';
 import logger from '../utils/logger.js';
 import { calculateCID } from '../utils/ipfs-utils.js';
+import path from 'path';
 
 
 /**
@@ -411,8 +412,8 @@ export class PostingService {
           // 如果CID无法找到，回退到直接读取文件路径
           logger.warn(`通过CID未找到图片，尝试直接从路径加载: ${content.imagePath}`);
           
-          // 获取绝对路径
-          const absolutePath = this.file.getAbsolutePath(content.imagePath);
+          // 获取绝对路径 - 手动构建绝对路径
+          const absolutePath = path.join(this.config.DATA_DIR, content.imagePath);
           logger.debug(`转换为绝对路径: ${absolutePath}`);
           
           if (fs.existsSync(absolutePath)) {

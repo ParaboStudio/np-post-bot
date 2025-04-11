@@ -13,7 +13,7 @@ import { logger } from '../../utils/logger.js';
  */
 export class TelegramPlatform implements Platform {
   id: string = 'telegram';
-  name: string = 'Telegram';
+  name: string = 'telegram';
   
   private services!: ServiceContainer;
   private commandRouter!: CommandRouter;

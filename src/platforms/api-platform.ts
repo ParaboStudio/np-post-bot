@@ -110,14 +110,14 @@ export class ApiPlatform implements Platform {
             // 系统信息
             const result = await router.route('system info', {});
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '获取系统信息成功';
             response.data = result.data;
           }
           else if (pathname === '/api/system/diagnose') {
             // 系统诊断
             const result = await router.route('system diagnose', {});
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '系统诊断完成';
             response.data = result.data;
           }
           else if (pathname === '/api/system/cache') {
@@ -125,7 +125,7 @@ export class ApiPlatform implements Platform {
             const action = parsedUrl.query.action as string;
             const result = await router.route('system cache', { action });
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '缓存操作完成';
             response.data = result.data;
           }
           else if (pathname === '/api/content/list') {
@@ -135,7 +135,7 @@ export class ApiPlatform implements Platform {
               ensLabel: ensLabel || undefined 
             });
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '获取内容列表成功';
             response.data = result.data;
           }
           else if (pathname === '/api/content/generate' && req.method === 'POST') {
@@ -151,7 +151,7 @@ export class ApiPlatform implements Platform {
                 prompt: data.prompt
               });
               response.success = result.success;
-              response.message = result.message;
+              response.message = result.message || '内容生成成功';
               response.data = result.data;
             }
           }
@@ -170,7 +170,7 @@ export class ApiPlatform implements Platform {
                 walletIndex: data.walletIndex
               });
               response.success = result.success;
-              response.message = result.message;
+              response.message = result.message || '内容发布成功';
               response.data = result.data;
             } else {
               // 快速发布
@@ -180,7 +180,7 @@ export class ApiPlatform implements Platform {
                 walletIndex: data.walletIndex
               });
               response.success = result.success;
-              response.message = result.message;
+              response.message = result.message || '快速发布成功';
               response.data = result.data;
             }
           }
@@ -188,7 +188,7 @@ export class ApiPlatform implements Platform {
             // 调度器状态
             const result = await router.route('scheduler status', {});
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '获取调度器状态成功';
             response.data = result.data;
           }
           else if (pathname === '/api/scheduler/update' && req.method === 'POST') {
@@ -198,7 +198,7 @@ export class ApiPlatform implements Platform {
             
             const result = await router.route('scheduler update', data);
             response.success = result.success;
-            response.message = result.message;
+            response.message = result.message || '更新调度器配置成功';
             response.data = result.data;
           }
           else {
