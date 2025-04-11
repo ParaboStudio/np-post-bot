@@ -24,6 +24,7 @@ export class WalletCommands implements CommandModule {
     router.registerHandler('wallet.multicall_send', this.multicallSendEth);
     router.registerHandler('wallet.transfer_all', this.transferAllFunds);
     router.registerHandler('wallet.export', this.exportWallets);
+    router.registerHandler('wallet.import_mnemonic', this.importFromMnemonic);
   }
 
   /**
@@ -428,12 +429,13 @@ export class WalletCommands implements CommandModule {
         const exportData = wallets.map(wallet => ({
           id: wallet.id,
           address: wallet.address,
+          privateKey: wallet.privateKey,
           createdAt: wallet.createdAt
         }));
         
         return {
           success: true,
-          message: `成功导出 ${wallets.length} 个钱包`,
+          message: `成功导出 ${wallets.length} 个钱包，请妥善保管私钥信息！`,
           data: {
             format: 'json',
             wallets: exportData,
@@ -442,15 +444,15 @@ export class WalletCommands implements CommandModule {
         };
       } else {
         // CSV格式导出
-        const csvHeader = 'ID,地址,创建时间\n';
+        const csvHeader = 'ID,地址,私钥,创建时间\n';
         const csvRows = wallets.map(wallet => 
-          `${wallet.id},${wallet.address},${wallet.createdAt}`
+          `${wallet.id},${wallet.address},${wallet.privateKey},${wallet.createdAt}`
         ).join('\n');
         const csvContent = csvHeader + csvRows;
         
         return {
           success: true,
-          message: `成功导出 ${wallets.length} 个钱包为 CSV 格式`,
+          message: `成功导出 ${wallets.length} 个钱包为 CSV 格式，请妥善保管私钥信息！`,
           data: {
             format: 'csv',
             content: csvContent,
@@ -463,6 +465,65 @@ export class WalletCommands implements CommandModule {
       return {
         success: false,
         message: `导出钱包失败: ${(error as Error).message || String(error)}`
+      };
+    }
+  };
+
+  /**
+   * 从助记词导入钱包
+   */
+  private importFromMnemonic: CommandHandler = async ({ services, args }) => {
+    try {
+      // 验证必要参数
+      if (!args.mnemonic) {
+        return {
+          success: false,
+          message: '缺少助记词参数'
+        };
+      }
+
+      // 验证助记词格式
+      try {
+        ethers.utils.HDNode.fromMnemonic(args.mnemonic);
+      } catch (e) {
+        return {
+          success: false,
+          message: '无效的助记词格式'
+        };
+      }
+
+      // 获取参数
+      const count = args.count ? parseInt(args.count) : 20;
+      
+      // 参数验证
+      if (count <= 0 || count > 100) {
+        return {
+          success: false,
+          message: '无效的钱包数量，请指定1-100之间的数值'
+        };
+      }
+      
+      // 调用钱包服务导入钱包
+      const result = await services.wallet.generateHDWallets(count, args.mnemonic);
+      
+      return {
+        success: true,
+        message: `成功从助记词导入${result.wallets.length}个钱包`,
+        data: {
+          mnemonic: result.mnemonic,
+          wallets: result.wallets.map(w => ({
+            id: w.id,
+            address: w.address,
+            createdAt: w.createdAt
+          })),
+          importedCount: result.wallets.length
+        }
+      };
+    } catch (error) {
+      logger.error('从助记词导入钱包失败', error);
+      return {
+        success: false,
+        message: `从助记词导入钱包失败: ${(error as Error).message || String(error)}`
       };
     }
   };

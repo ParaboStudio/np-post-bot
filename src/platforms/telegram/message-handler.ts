@@ -123,10 +123,11 @@ export class TelegramMessageHandler {
         '钱包管理:\n' +
         '/wallet_add <私钥> - 添加钱包\n' +
         '/wallet_generate [数量=20] - 自动生成HD钱包\n' +
+        '/wallet_import <助记词> [数量=20] - 从助记词导入钱包\n' +
         '/wallet_list - 列出钱包\n' +
         '/wallet_delete <索引> - 删除钱包\n' +
         '/wallet_switch <索引> - 切换当前钱包\n' +
-        '/wallet_export [格式=json] - 导出钱包信息\n\n' +
+        '/wallet_export [格式=json] - 导出钱包信息（包含私钥）\n\n' +
 
         '资金管理:\n' +
         '/fund_send <接收地址> <金额> [钱包索引] - 从指定钱包向目标地址发送ETH\n' +

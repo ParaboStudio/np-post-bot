@@ -344,6 +344,20 @@ const commands: Record<string, CommandDefinition> = {
     ],
     category: '钱包'
   },
+  'wallet.import_mnemonic': {
+    platforms: {
+      telegram: { command: 'wallet_import' },
+      cli: { command: 'wallet import' },
+      api: { endpoint: '/api/wallet/import' }
+    },
+    handler: 'WalletCommands.importFromMnemonic',
+    description: '从助记词导入钱包',
+    params: [
+      { name: 'mnemonic', description: '助记词', required: true },
+      { name: 'count', description: '钱包数量', required: false }
+    ],
+    category: '钱包'
+  },
   'wallet.list': {
     platforms: {
       telegram: { command: 'wallet_list' },
