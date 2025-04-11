@@ -46,6 +46,7 @@ export class TelegramArgsParser {
     this.commandHandlers['wallet.export'] = this.handleWalletExportParams;
     this.commandHandlers['wallet.multicall_send'] = this.handleMulticallSendParams;
     this.commandHandlers['wallet.transfer_all'] = this.handleTransferAllParams;
+    this.commandHandlers['wallet.import_mnemonic'] = this.handleWalletImportParams;
 
     // 资金相关命令
     this.commandHandlers['fund.send'] = this.handleFundSendParams;
@@ -241,6 +242,29 @@ export class TelegramArgsParser {
       if (args.length > 1) {
         // 如果提供了助记词，合并为一个字符串
         parsedArgs.mnemonic = args.slice(1).join(' ');
+      }
+    }
+
+    return parsedArgs;
+  };
+
+  // 处理 wallet.import_mnemonic 命令的参数
+  private handleWalletImportParams = (args: string[]): Record<string, any> => {
+    const parsedArgs: Record<string, any> = {};
+
+    // 如果有参数
+    if (args.length > 0) {
+      // 检查第一个参数是否是有效数字，如果是则视为count参数
+      if (!isNaN(parseInt(args[0])) && parseInt(args[0]) > 0 && parseInt(args[0]) <= 100) {
+        parsedArgs.count = parseInt(args[0]);
+        
+        // 如果还有更多参数，剩余的全部视为助记词
+        if (args.length > 1) {
+          parsedArgs.mnemonic = args.slice(1).join(' ');
+        }
+      } else {
+        // 否则，所有参数都视为助记词
+        parsedArgs.mnemonic = args.join(' ');
       }
     }
 
