@@ -148,7 +148,7 @@ async function executeTask(task) {
       // 构建发布命令
       // 注意：这里假设您有一个Node.js脚本可以执行发布操作
       // 如果没有，需要根据实际情况调整
-      const publishCommand = `node src/cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}"`;
+      const publishCommand = `node dist/scheduule-cli.js content publish --community="${task.community}" --contentType="${task.contentType || 'default'}"`;
       
       console.log(`执行命令: ${publishCommand}`);
       
