@@ -389,8 +389,19 @@ export class SchedulerService {
         for (const chainName of enabledChains) {
           for (const walletIndex of walletIndices) {
             try {
-              // 切换到目标链 - 使用setCurrentChain方法替代switchChain
-              await this.chain.setCurrentChain(chainName, 'admin');
+              // 切换到目标链
+              logger.info(`准备切换到目标链: ${chainName}`);
+              
+              // 通过更新用户设置来切换链
+              const adminSettings = this.storage.getUserSettings('admin') || {};
+              adminSettings.currentChain = chainName;
+              await this.storage.updateUserSettings('admin', adminSettings);
+              
+              // 验证链是否切换成功
+              const currentConfig = this.chain.getCurrentChainConfig();
+              if (currentConfig && currentConfig.name !== chainName) {
+                logger.warn(`可能无法切换到目标链 ${chainName}，当前链为 ${currentConfig.name}`);
+              }
 
               // 选择内容发布
               if (this.config.useRandomContent) {

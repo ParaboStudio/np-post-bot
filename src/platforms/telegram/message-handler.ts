@@ -122,17 +122,22 @@ export class TelegramMessageHandler {
 
         '钱包管理:\n' +
         '/wallet_add <私钥> - 添加钱包\n' +
-        '/wallet_generate [数量=1] - 自动生成钱包\n' +
+        '/wallet_generate [数量=20] - 自动生成HD钱包\n' +
         '/wallet_list - 列出钱包\n' +
         '/wallet_delete <索引> - 删除钱包\n' +
-        '/wallet_switch <索引> - 切换钱包\n' +
-        '/wallet_export [格式=json] - 导出钱包\n\n' +
+        '/wallet_switch <索引> - 切换当前钱包\n' +
+        '/wallet_export [格式=json] - 导出钱包信息\n\n' +
 
         '资金管理:\n' +
-        '/fund_send <接收地址> <金额> [钱包索引] - 发送资金\n' +
-        '/fund_distribute <金额> [钱包列表] - 向多个钱包分发资金\n' +
-        '/fund_batch_eth <金额> [钱包列表] - 批量打ETH到钱包\n' +
+        '/fund_send <接收地址> <金额> [钱包索引] - 从指定钱包向目标地址发送ETH\n' +
+        '/fund_distribute <金额> <钱包列表> - 从当前钱包向多个钱包索引批量发送ETH\n' +
+        '/fund_batch_eth <金额> <钱包列表> - 从当前钱包向指定地址或索引列表批量转账\n' +
         '/fund_balance [钱包索引] - 查询钱包余额\n\n' +
+
+        '钱包资金操作:\n' +
+        '/wallet_funding <私钥> <金额> - 使用外部钱包私钥向所有生成的钱包发送ETH ⚠️\n' +
+        '/wallet_transfer_all <目标地址> - 将所有钱包的资金转移到安全地址，自动扣除gas费用(含足够安全余量)，每个钱包之间有1秒延迟\n' +
+        '(⚠️ 注意：wallet_funding命令需要私钥参数，仅在私聊环境中使用，并注意保护私钥安全)\n\n' +
 
         '调度器:\n' +
         '/scheduler_status - 查看调度器状态\n' +

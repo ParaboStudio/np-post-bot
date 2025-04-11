@@ -169,7 +169,7 @@ export class PostingService {
       await this.storage.updateContent(user, contentId, { status: 'publishing' });
       
       // 4. 获取链配置
-      const chainConfig = this.chain.getCurrentChainConfig(user);
+      const chainConfig = this.chain.getCurrentChainConfig();
       if (!chainConfig) {
         throw new Error('当前链配置不存在');
       }

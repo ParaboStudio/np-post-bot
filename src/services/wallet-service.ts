@@ -332,129 +332,145 @@ export class WalletService {
   }
 
   /**
-   * 将所有钱包的资产批量转移到安全地址
+   * 将所有钱包的资产转移到安全地址
+   * 用于在重新部署前保护资产
    * @param targetAddress 目标安全地址
    * @param rpcUrl RPC URL
-   * @param minAmount 最小转账金额（ETH），默认0.001
-   * @param username 用户名，默认当前用户
+   * @param username 用户名，默认使用当前用户
    * @returns 转账结果
    */
   public async transferAllFunds(
     targetAddress: string,
     rpcUrl: string,
-    minAmount: string = '0.001',
     username?: string
   ): Promise<FundTransferResult> {
     const user = username || this.user.getCurrentUser();
+    
+    // 获取所有钱包
+    const wallets = this.storage.getWallets(user);
     
     // 结果初始化
     const result: FundTransferResult = {
       transfers: []
     };
-
-    try {
-      // 获取所有钱包
-      const wallets = this.storage.getWallets(user);
-      
-      if (wallets.length === 0) {
-        logger.warn(`用户 ${user} 没有可用的钱包`);
-        return result;
-      }
-
-      logger.info(`开始为用户 ${user} 从 ${wallets.length} 个钱包转移资金到安全地址 ${targetAddress}`);
-      
-      // 最小转账阈值（Wei）
-      const minAmountWei = ethers.utils.parseEther(minAmount);
-      
-      // 为每个钱包检查余额并执行转账
-      const transferPromises = wallets.map(async (wallet) => {
-        try {
-          // 创建钱包实例
-          const provider = this.blockchain.getProvider(rpcUrl);
-          const walletInstance = new ethers.Wallet(wallet.privateKey, provider);
-          
-          // 获取余额
-          const balance = await walletInstance.getBalance();
-          
-          // 转账结果初始化
-          const transferResult = {
-            walletId: wallet.id,
-            address: wallet.address,
-            amount: ethers.utils.formatEther(balance),
-            success: false,
-            txHash: undefined as string | undefined
-          };
-          
-          // 如果余额低于最小阈值，则跳过
-          if (balance.lt(minAmountWei)) {
-            logger.info(`钱包 ${wallet.address} 余额过低(${ethers.utils.formatEther(balance)} ETH)，小于 ${minAmount} ETH，跳过转账`);
-            return transferResult;
-          }
-          
-          // 计算可转账金额（减去gas费用）
-          // 预留21000(基本转账gas) * 30gwei 的gas费用
-          const gasLimit = 21000;
-          const gasPrice = await provider.getGasPrice(); // 获取当前gas价格
-          const gasCost = gasLimit * gasPrice.toNumber();
-          
-          // 如果余额小于gas费用，则跳过
-          if (balance.lte(gasCost)) {
-            logger.info(`钱包 ${wallet.address} 余额(${ethers.utils.formatEther(balance)} ETH)不足以支付gas费用，跳过转账`);
-            return transferResult;
-          }
-          
-          // 计算实际可转账金额
-          const transferAmount = balance.sub(gasCost);
-          
-          // 执行转账
-          logger.info(`正在从钱包 ${wallet.address} 转移 ${ethers.utils.formatEther(transferAmount)} ETH 到安全地址 ${targetAddress}`);
-          
-          const tx = await walletInstance.sendTransaction({
-            to: targetAddress,
-            value: transferAmount,
-            gasLimit
-          });
-          
-          // 等待交易确认
-          const receipt = await tx.wait(1);
-          
-          // 更新转账结果
-          transferResult.success = true;
-          transferResult.txHash = tx.hash;
-          transferResult.amount = ethers.utils.formatEther(transferAmount);
-          
-          logger.info(`从钱包 ${wallet.address} 成功转移 ${transferResult.amount} ETH 到安全地址，交易哈希: ${tx.hash}`);
-          
-          return transferResult;
-        } catch (error) {
-          logger.error(`从钱包 ${wallet.address} 转移资金失败`, error);
-          return {
-            walletId: wallet.id,
-            address: wallet.address,
-            amount: '0',
-            success: false,
-            error: (error as Error).message || String(error)
-          };
-        }
-      });
-      
-      // 等待所有转账完成
-      result.transfers = await Promise.all(transferPromises);
-      
-      // 统计成功数量和总转账金额
-      const successCount = result.transfers.filter(t => t.success).length;
-      const totalAmount = result.transfers
-        .filter(t => t.success)
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0)
-        .toFixed(6);
-      
-      logger.info(`批量资金转移完成: ${successCount}/${wallets.length} 个钱包成功，总计转移 ${totalAmount} ETH`);
-      
+    
+    if (wallets.length === 0) {
+      logger.warn(`用户 ${user} 没有可用的钱包`);
       return result;
-    } catch (error) {
-      logger.error(`执行批量资金转移失败`, error);
-      throw error;
     }
+
+    logger.info(`开始为用户 ${user} 从 ${wallets.length} 个钱包转移资金到安全地址 ${targetAddress}`);
+    
+    // 定义sleep函数
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // 为每个钱包检查余额并执行转账 - 使用串行方式而不是并行，以避免RPC限流
+    for (const wallet of wallets) {
+      try {
+        // 创建钱包实例
+        const provider = this.blockchain.getProvider(rpcUrl);
+        const walletInstance = new ethers.Wallet(wallet.privateKey, provider);
+        
+        // 获取余额
+        const balance = await walletInstance.getBalance();
+        
+        // 转账结果初始化
+        const transferResult = {
+          walletId: wallet.id,
+          address: wallet.address,
+          amount: ethers.utils.formatEther(balance),
+          success: false,
+          txHash: undefined as string | undefined
+        };
+        
+        // 计算可转账金额（减去gas费用）
+        // 预留21000(基本转账gas) * 当前gas价格 的gas费用，并增加40%的安全边际
+        const gasLimit = 21000;
+        const gasPrice = await provider.getGasPrice(); // 获取当前gas价格
+        
+        // 增加gas价格以确保交易成功
+        const txGasPrice = gasPrice.mul(12).div(10); // 增加20%的gas价格
+        
+        // 使用BigNumber进行计算，增加20%的安全边际
+        const gasCostBase = txGasPrice.mul(gasLimit);
+        const safetyMargin = gasCostBase.mul(2).div(10); // 再增加20%的安全边际
+        const gasCost = gasCostBase.add(safetyMargin); // 总共约增加了44%的安全边际
+        
+        // 记录详细的计算信息，便于调试
+        logger.debug(
+          `钱包 ${wallet.address} 余额计算：总余额=${ethers.utils.formatEther(balance)} ETH, ` +
+          `基本gas费用=${ethers.utils.formatEther(gasCostBase)} ETH, ` +
+          `安全边际=${ethers.utils.formatEther(safetyMargin)} ETH, ` +
+          `总gas费用=${ethers.utils.formatEther(gasCost)} ETH`
+        );
+        
+        // 如果余额小于gas费用，则跳过
+        if (balance.lte(gasCost)) {
+          logger.info(`钱包 ${wallet.address} 余额(${ethers.utils.formatEther(balance)} ETH)不足以支付gas费用，跳过转账`);
+          result.transfers.push(transferResult);
+          continue;
+        }
+        
+        // 计算实际可转账金额
+        const transferAmount = balance.sub(gasCost);
+        
+        // 如果可转账金额为0，也跳过
+        if (transferAmount.isZero()) {
+          logger.info(`钱包 ${wallet.address} 扣除gas费用后可转账金额为0，跳过转账`);
+          result.transfers.push(transferResult);
+          continue;
+        }
+        
+        // 执行转账
+        logger.info(`正在从钱包 ${wallet.address} 转移 ${ethers.utils.formatEther(transferAmount)} ETH 到安全地址 ${targetAddress}`);
+        
+        const tx = await walletInstance.sendTransaction({
+          to: targetAddress,
+          value: transferAmount,
+          gasLimit,
+          gasPrice: txGasPrice
+        });
+        
+        // 等待交易确认
+        const receipt = await tx.wait(1);
+        
+        // 更新转账结果
+        transferResult.success = true;
+        transferResult.txHash = tx.hash;
+        transferResult.amount = ethers.utils.formatEther(transferAmount);
+        
+        logger.info(`从钱包 ${wallet.address} 成功转移 ${transferResult.amount} ETH 到安全地址，交易哈希: ${tx.hash}`);
+        
+        // 添加到结果中
+        result.transfers.push(transferResult);
+        
+        // 添加延迟，避免RPC限流
+        await sleep(1000); // 延迟1秒
+      } catch (error) {
+        logger.error(`从钱包 ${wallet.address} 转移资金失败`, error);
+        result.transfers.push({
+          walletId: wallet.id,
+          address: wallet.address,
+          amount: '0',
+          success: false,
+          error: (error as Error).message || String(error)
+        });
+        
+        // 即使失败也添加延迟
+        await sleep(1000);
+      }
+    }
+    
+    // 统计成功数量和总转账金额
+    const successCount = result.transfers.filter(t => t.success).length;
+    const totalAmount = result.transfers
+      .filter(t => t.success)
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0)
+      .toFixed(6);
+    
+    logger.info(`批量资金转移完成: ${successCount}/${wallets.length} 个钱包成功，总计转移 ${totalAmount} ETH`);
+    
+    return result;
   }
 
   /**

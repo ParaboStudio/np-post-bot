@@ -256,7 +256,6 @@ export class WalletCommands implements CommandModule {
       
       // 获取RPC URL
       const chainService = services.chain;
-      const currentChain = chainService.getCurrentChain();
       const chainConfig = chainService.getCurrentChainConfig();
 
       if (!chainConfig || !chainConfig.rpcUrl) {
@@ -352,9 +351,6 @@ export class WalletCommands implements CommandModule {
 
       const rpcUrl = chainConfig.rpcUrl;
 
-      // 获取最小转账阈值，默认为0.001 ETH
-      const minAmount = args.minAmount || '0.001';
-
       // 获取当前用户
       const userService = services.user;
       const user = userService.getCurrentUser();
@@ -364,7 +360,6 @@ export class WalletCommands implements CommandModule {
       const result = await walletService.transferAllFunds(
         args.targetAddress,
         rpcUrl,
-        minAmount,
         user
       );
       
